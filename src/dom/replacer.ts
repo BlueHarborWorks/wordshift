@@ -1,0 +1,193 @@
+import { findMatches, spliceMatches, type TextMatch } from '../core/apply';
+import type { CompiledPattern } from '../core/compile';
+
+export interface ActiveRule {
+  id: string;
+  pattern: CompiledPattern;
+}
+
+export interface PassResult {
+  replacements: number;
+  nodesChanged: number;
+  /** True when the pass stopped early at the node limit. */
+  truncated: boolean;
+}
+
+export interface NodeMatch extends TextMatch {
+  node: Text;
+}
+
+interface Change {
+  node: Text;
+  before: string;
+  after: string;
+  /** 0 for automatic rules; each Quick Replace action gets its own number so it can be undone alone. */
+  action: number;
+}
+
+export interface ReplacerOptions {
+  /** Work for this long, then yield to the page before continuing. */
+  sliceMs?: number;
+  /** Stop a pass after this many text nodes. */
+  maxNodes?: number;
+  now?: () => number;
+  yieldToPage?: () => Promise<void>;
+}
+
+const AUTO = 0;
+
+/**
+ * Changes text nodes and remembers every change so it can be undone.
+ * Only touches `Text.data`, so page structure, listeners and framework state are left intact.
+ */
+export class PageReplacer {
+  private changes: Change[] = [];
+  /** What Wordshift last wrote to each node, so its own writes are not processed again. */
+  private written = new WeakMap<Text, string>();
+  private lastAction = AUTO;
+  private readonly perRule = new Map<string, number>();
+
+  private readonly sliceMs: number;
+  private readonly maxNodes: number;
+  private readonly now: () => number;
+  private readonly yieldToPage: () => Promise<void>;
+
+  constructor(options: ReplacerOptions = {}) {
+    this.sliceMs = options.sliceMs ?? 12;
+    this.maxNodes = options.maxNodes ?? 200_000;
+    this.now = options.now ?? (() => performance.now());
+    this.yieldToPage = options.yieldToPage ?? (() => new Promise((resolve) => setTimeout(resolve, 0)));
+  }
+
+  /** Replacements made by automatic rules, by rule id. */
+  get autoCounts(): ReadonlyMap<string, number> {
+    return this.perRule;
+  }
+
+  get canUndo(): boolean {
+    return this.changes.some((c) => c.action !== AUTO);
+  }
+
+  /** True when the node's current text was written by Wordshift. */
+  isOwnWrite(node: Text): boolean {
+    return this.written.get(node) === node.data;
+  }
+
+  /** Applies automatic rules to the given nodes, yielding to the page between slices. */
+  async applyAuto(nodes: readonly Text[], rules: readonly ActiveRule[]): Promise<PassResult> {
+    const result: PassResult = { replacements: 0, nodesChanged: 0, truncated: nodes.length > this.maxNodes };
+    const limit = Math.min(nodes.length, this.maxNodes);
+    let sliceStart = this.now();
+
+    for (let i = 0; i < limit; i++) {
+      if (this.now() - sliceStart > this.sliceMs) {
+        await this.yieldToPage();
+        sliceStart = this.now();
+      }
+      const node = nodes[i]!;
+      if (!node.isConnected || this.isOwnWrite(node)) continue;
+
+      let text = node.data;
+      let changed = 0;
+      for (const rule of rules) {
+        const matches = findMatches(text, rule.pattern);
+        if (matches.length === 0) continue;
+        text = spliceMatches(text, matches);
+        changed += matches.length;
+        this.perRule.set(rule.id, (this.perRule.get(rule.id) ?? 0) + matches.length);
+      }
+      if (changed > 0) {
+        this.write(node, text, AUTO);
+        result.replacements += changed;
+        result.nodesChanged++;
+      }
+    }
+    return result;
+  }
+
+  /** Every match of one pattern, for preview and step-through. Includes text Wordshift already changed. */
+  find(nodes: readonly Text[], pattern: CompiledPattern): NodeMatch[] {
+    const out: NodeMatch[] = [];
+    for (const node of nodes) {
+      if (!node.isConnected) continue;
+      for (const match of findMatches(node.data, pattern)) out.push({ ...match, node });
+    }
+    return out;
+  }
+
+  /** Starts a new undoable action, for grouping several `replaceMatches` calls. */
+  newAction(): number {
+    return ++this.lastAction;
+  }
+
+  /**
+   * Replaces the given matches as one undoable action (a new one unless `action` is given).
+   * Matches must come from `find` on the current text.
+   */
+  replaceMatches(matches: readonly NodeMatch[], action?: number): number {
+    const byNode = new Map<Text, NodeMatch[]>();
+    for (const match of matches) {
+      if (!match.node.isConnected) continue;
+      const list = byNode.get(match.node) ?? [];
+      list.push(match);
+      byNode.set(match.node, list);
+    }
+    if (byNode.size === 0) return 0;
+
+    action ??= this.newAction();
+    let count = 0;
+    for (const [node, list] of byNode) {
+      list.sort((a, b) => a.start - b.start);
+      this.write(node, spliceMatches(node.data, list), action);
+      count += list.length;
+    }
+    return count;
+  }
+
+  /** Undoes the most recent Quick Replace action. Returns the number of nodes restored. */
+  undoLast(): number {
+    const action = Math.max(AUTO, ...this.changes.map((c) => c.action));
+    if (action === AUTO) return 0;
+    return this.restore((c) => c.action === action);
+  }
+
+  /** Restores text changed by automatic rules, leaving Quick Replace changes in place. */
+  restoreAuto(): number {
+    const restored = this.restore((c) => c.action === AUTO);
+    this.perRule.clear();
+    return restored;
+  }
+
+  /** Restores all text Wordshift changed on this page. */
+  restoreAll(): number {
+    const restored = this.restore(() => true);
+    this.perRule.clear();
+    return restored;
+  }
+
+  private write(node: Text, text: string, action: number): void {
+    this.changes.push({ node, before: node.data, after: text, action });
+    node.data = text;
+    this.written.set(node, text);
+  }
+
+  private restore(select: (change: Change) => boolean): number {
+    let restored = 0;
+    const kept: Change[] = [];
+    for (let i = this.changes.length - 1; i >= 0; i--) {
+      const change = this.changes[i]!;
+      if (!select(change)) {
+        kept.push(change);
+        continue;
+      }
+      // Skip nodes the page has rewritten since; restoring them would clobber newer content.
+      if (change.node.isConnected && change.node.data === change.after) {
+        change.node.data = change.before;
+        this.written.delete(change.node);
+        restored++;
+      }
+    }
+    this.changes = kept.reverse();
+    return restored;
+  }
+}
