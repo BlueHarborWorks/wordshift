@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Wordshift</title>
+    <meta
+      name="description"
+      content="Wordshift is a browser extension that finds and replaces text on web pages, once or on every visit."
+    />
+    <link rel="icon" type="image/png" href="img/icon-32.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    />
+    <style>
+      /* Layout: one centred column, 1080px max; the hero splits into copy and a working demo, then stacks on phones. */
+      :root {
+        --paper: #ffffff;
+        --wash: #f6f6f4;
+        --ink: #1b1b1a;
+        --ink-soft: #5d5d58;
+        --rule: #e2e2de;
+        --rule-strong: #c7c7c2;
+        --mark: rgb(250 204 21 / 0.4);
+        --mark-strong: #facc15;
+        --on-mark: #1b1b1a;
+        --focus: #2f6fde;
+        --error: #b42318;
+
+        --display: 'Bricolage Grotesque', 'Helvetica Neue', Arial, sans-serif;
+        --body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+
+        --step--1: 0.8125rem;
+        --step-0: 1rem;
+        --step-1: 1.1875rem;
+        --step-2: 1.5rem;
+        --step-3: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
+        --radius: 6px;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --paper: #161615;
+          --wash: #1f1f1e;
+          --ink: #ececea;
+          --ink-soft: #a5a5a0;
+          --rule: #2f2f2d;
+          --rule-strong: #46463f;
+          --mark: rgb(250 204 21 / 0.28);
+          --mark-strong: #facc15;
+          --on-mark: #1b1b1a;
+          --focus: #7aa7ff;
+          --error: #f2826f;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --paper: #161615;
+        --wash: #1f1f1e;
+        --ink: #ececea;
+        --ink-soft: #a5a5a0;
+        --rule: #2f2f2d;
+        --rule-strong: #46463f;
+        --mark: rgb(250 204 21 / 0.28);
+        --mark-strong: #facc15;
+        --on-mark: #1b1b1a;
+        --focus: #7aa7ff;
+        --error: #f2826f;
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 400 var(--step-0) / 1.6 var(--body);
+        -webkit-font-smoothing: antialiased;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      a {
+        color: inherit;
+        text-decoration-color: var(--rule-strong);
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        text-decoration-color: currentColor;
+      }
+      :focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        text-wrap: balance;
+      }
+      p {
+        margin: 0;
+      }
+      kbd,
+      code {
+        font-family: var(--mono);
+        font-size: 0.875em;
+      }
+      kbd {
+        display: inline-block;
+        min-width: 1.6em;
+        padding: 0.05em 0.4em;
+        border: 1px solid var(--rule-strong);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        background: var(--paper);
+        text-align: center;
+        line-height: 1.4;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      mark {
+        background: var(--mark);
+        color: inherit;
+        border-radius: 2px;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: 1080px;
+        margin-inline: auto;
+        padding-inline: 24px;
+      }
+      @media (max-width: 480px) {
+        .wrap {
+          padding-inline: 16px;
+        }
+      }
+
+      /* Header */
+      .site-head {
+        border-bottom: 1px solid var(--rule);
+      }
+      .site-head .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 24px;
+        padding-block: 14px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: 600 var(--step-1) / 1 var(--display);
+        text-decoration: none;
+      }
+      .brand img {
+        width: 26px;
+        height: 26px;
+      }
+      .site-head nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 20px;
+        margin-left: auto;
+        font-size: var(--step--1);
+      }
+      .site-head nav a {
+        color: var(--ink-soft);
+        text-decoration: none;
+      }
+      .site-head nav a:hover {
+        color: var(--ink);
+      }
+
+      /* Hero */
+      .hero {
+        padding-block: 64px 72px;
+      }
+      .hero .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 48px;
+        align-items: start;
+      }
+      .eyebrow {
+        margin-bottom: 16px;
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        position: relative;
+        z-index: 0;
+        font: 600 var(--step-3) / 1.04 var(--display);
+        letter-spacing: -0.02em;
+      }
+      .hero h1 .shift {
+        position: relative;
+        white-space: nowrap;
+      }
+      .hero h1 .shift::after {
+        content: '';
+        position: absolute;
+        left: -0.04em;
+        right: -0.04em;
+        bottom: 0.08em;
+        height: 0.32em;
+        background: var(--mark-strong);
+        opacity: 0.55;
+        z-index: -1;
+      }
+      .lede {
+        max-width: 34em;
+        margin-top: 20px;
+        color: var(--ink-soft);
+        font-size: var(--step-1);
+        line-height: 1.55;
+      }
+      .status {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 20px;
+        margin-top: 28px;
+        font-size: var(--step--1);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px;
+        border: 1px solid var(--rule-strong);
+        border-radius: 999px;
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .chip::before {
+        content: '';
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ink-soft);
+      }
+
+      /* Demo */
+      .demo {
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        background: var(--paper);
+        box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.35);
+      }
+      .demo-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--rule);
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+      }
+      .demo-controls {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        border-bottom: 1px solid var(--rule);
+        background: var(--wash);
+      }
+      .field-row {
+        position: relative;
+      }
+      .demo input[type='text'] {
+        width: 100%;
+        height: 34px;
+        padding: 0 84px 0 10px;
+        border: 1px solid var(--rule-strong);
+        border-radius: var(--radius);
+        background: var(--paper);
+        color: var(--ink);
+        font: 400 var(--step--1) var(--mono);
+      }
+      .demo input[type='text']:focus {
+        border-color: var(--focus);
+        outline: none;
+        box-shadow: 0 0 0 1px var(--focus);
+      }
+      .demo input[aria-invalid='true'] {
+        border-color: var(--error);
+      }
+      .count {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        color: var(--ink-soft);
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+      }
+      .demo-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .segmented {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        background: var(--paper);
+      }
+      .segmented button,
+      .toggle {
+        height: 26px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--ink-soft);
+        font: 500 0.75rem var(--body);
+        cursor: pointer;
+      }
+      .segmented button[aria-checked='true'] {
+        background: var(--wash);
+        color: var(--ink);
+        box-shadow: 0 0 0 1px var(--rule-strong);
+      }
+      .toggle {
+        height: 32px;
+        border: 1px solid var(--rule);
+        background: var(--paper);
+      }
+      .toggle[aria-pressed='true'] {
+        border-color: var(--rule-strong);
+        color: var(--ink);
+      }
+      .spacer {
+        flex: 1;
+      }
+      .btn {
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--rule-strong);
+        border-radius: var(--radius);
+        background: var(--paper);
+        color: var(--ink);
+        font: 500 var(--step--1) var(--body);
+        cursor: pointer;
+      }
+      .btn.primary {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .btn:disabled {
+        border-color: var(--rule);
+        background: var(--wash);
+        color: var(--ink-soft);
+        cursor: default;
+        opacity: 0.7;
+      }
+      .demo-error {
+        color: var(--error);
+        font-size: 0.75rem;
+      }
+      .sample {
+        display: grid;
+        gap: 12px;
+        min-height: 190px;
+        padding: 18px 20px 22px;
+        font:
+          400 1.0625rem / 1.65 Georgia,
+          'Times New Roman',
+          serif;
+      }
+      .sample h3 {
+        font:
+          700 1.25rem / 1.25 Georgia,
+          'Times New Roman',
+          serif;
+      }
+
+      /* Sections */
+      section.block {
+        padding-block: 72px;
+        border-top: 1px solid var(--rule);
+      }
+      .section-head {
+        display: grid;
+        gap: 10px;
+        max-width: 40em;
+        margin-bottom: 40px;
+      }
+      .section-head h2 {
+        font: 600 var(--step-2) / 1.2 var(--display);
+        letter-spacing: -0.01em;
+      }
+      .section-head p {
+        color: var(--ink-soft);
+      }
+
+      /* Screens */
+      .screens {
+        display: grid;
+        gap: 56px;
+      }
+      .screen {
+        display: grid;
+        grid-template-columns: minmax(0, 5fr) minmax(0, 2fr);
+        gap: 32px;
+        align-items: start;
+      }
+      .screen figcaption {
+        display: grid;
+        gap: 8px;
+        padding-top: 8px;
+      }
+      .screen figcaption h3 {
+        font: 600 var(--step-1) / 1.3 var(--body);
+      }
+      .screen figcaption p {
+        color: var(--ink-soft);
+      }
+      figure {
+        margin: 0;
+      }
+      .frame {
+        overflow: hidden;
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        background: var(--wash);
+      }
+      .composite {
+        position: relative;
+        padding-bottom: 40px;
+      }
+      .composite .page-shot {
+        width: 86%;
+      }
+      .composite .page-shot img {
+        aspect-ratio: 1720 / 780;
+        object-fit: cover;
+        object-position: top;
+      }
+      .composite .popup-shot {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 46%;
+        border: 1px solid var(--rule-strong);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.4);
+      }
+
+      /* Details list */
+      .details {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 32px 40px;
+        margin: 0;
+      }
+      .details div {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+        padding-top: 14px;
+        border-top: 1px solid var(--rule);
+      }
+      .details dt {
+        font-weight: 600;
+      }
+      .details dd {
+        margin: 0;
+        color: var(--ink-soft);
+      }
+
+      /* Safety */
+      .two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 40px;
+      }
+      .plain-list {
+        display: grid;
+        gap: 10px;
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .plain-list li {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 10px;
+      }
+      .plain-list li::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        margin-top: 0.6em;
+        border-radius: 50%;
+        background: var(--ink-soft);
+      }
+      .plain-list.changes li::before {
+        background: var(--mark-strong);
+      }
+      .col-title {
+        font: 600 var(--step-0) var(--body);
+      }
+      .data-title {
+        margin-top: 40px;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 48px;
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9375rem;
+      }
+      caption {
+        padding: 14px 16px 0;
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+        text-align: left;
+      }
+      th,
+      td {
+        padding: 12px 16px;
+        text-align: left;
+        vertical-align: top;
+      }
+      thead th {
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+        font-weight: 500;
+        border-bottom: 1px solid var(--rule);
+      }
+      tbody tr + tr td,
+      tbody tr + tr th {
+        border-top: 1px solid var(--rule);
+      }
+      tbody th {
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      tbody th code {
+        font-weight: 400;
+      }
+
+      /* Migration steps */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 32px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: step;
+      }
+      .steps li {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        counter-increment: step;
+      }
+      .steps li::before {
+        content: counter(step);
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--rule-strong);
+        border-radius: 50%;
+        font: 500 var(--step--1) var(--mono);
+      }
+      .steps h3 {
+        font: 600 var(--step-0) var(--body);
+      }
+      .steps p {
+        color: var(--ink-soft);
+      }
+      .note {
+        margin-top: 32px;
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+      }
+
+      /* Shortcuts */
+      .shortcuts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 40px;
+        margin: 0;
+      }
+      .shortcuts div {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4px 16px;
+        padding-block: 12px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .shortcuts dt {
+        color: var(--ink-soft);
+      }
+      .shortcuts dd {
+        margin: 0;
+        white-space: nowrap;
+      }
+
+      /* Footer */
+      .site-foot {
+        padding-block: 32px 48px;
+        border-top: 1px solid var(--rule);
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+      }
+      .site-foot .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px 24px;
+      }
+
+      @media (max-width: 860px) {
+        .hero .wrap,
+        .two-col,
+        .screen {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .details,
+        .steps {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .hero {
+          padding-block: 40px 56px;
+        }
+      }
+      @media (max-width: 560px) {
+        .details,
+        .steps,
+        .shortcuts {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .site-head nav {
+          margin-left: 0;
+        }
+        section.block {
+          padding-block: 56px;
+        }
+        .composite {
+          padding-bottom: 0;
+        }
+        .composite .page-shot {
+          width: 100%;
+        }
+        .composite .popup-shot {
+          position: static;
+          width: 78%;
+          margin: -48px 0 0 auto;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .sample mark {
+          transition: background-color 160ms;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-head">
+      <div class="wrap">
+        <a class="brand" href="#top" id="top"><img src="img/icon-96.png" alt="" width="26" height="26" />Wordshift</a>
+        <nav aria-label="Sections">
+          <a href="#how">How it works</a>
+          <a href="#details">Rules</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#foxreplace">From FoxReplace</a>
+          <a href="#shortcuts">Shortcuts</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="wrap">
+          <div>
+            <p class="eyebrow">Browser extension for Firefox and Chromium</p>
+            <h1 id="hero-title">Change the <span class="shift">words</span> on any web page.</h1>
+            <p class="lede">
+              Wordshift finds and replaces text on the sites you read, once or on every visit. It changes only the
+              visible text, leaves the page working as it was, and can undo every change.
+            </p>
+            <div class="status">
+              <span class="chip">Version 0.1 in development</span>
+              <span>Not yet listed on Firefox Add-ons or the Chrome Web Store.</span>
+            </div>
+          </div>
+
+          <div class="demo" role="group" aria-labelledby="demo-title">
+            <div class="demo-bar">
+              <span id="demo-title">Try it on this sample</span>
+              <span>Quick Replace</span>
+            </div>
+            <div class="demo-controls">
+              <div class="field-row">
+                <label class="visually-hidden" for="demo-find">Find</label>
+                <input
+                  id="demo-find"
+                  type="text"
+                  value="colour"
+                  placeholder="Find"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-describedby="demo-count"
+                />
+                <span class="count" id="demo-count" aria-live="polite"></span>
+              </div>
+              <div class="field-row">
+                <label class="visually-hidden" for="demo-replace">Replace with</label>
+                <input
+                  id="demo-replace"
+                  type="text"
+                  value="color"
+                  placeholder="Replace with"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </div>
+              <div class="demo-row">
+                <div class="segmented" role="radiogroup" aria-label="Match">
+                  <button type="button" role="radio" data-mode="text" aria-checked="false">Text</button>
+                  <button type="button" role="radio" data-mode="word" aria-checked="true">Word</button>
+                  <button type="button" role="radio" data-mode="regex" aria-checked="false">Regex</button>
+                </div>
+                <button type="button" class="toggle" id="demo-case" aria-pressed="false" title="Match case">
+                  Aa<span class="visually-hidden"> match case</span>
+                </button>
+                <span class="spacer"></span>
+                <button type="button" class="btn" id="demo-undo" disabled>Undo</button>
+                <button type="button" class="btn primary" id="demo-replace-all">Replace all</button>
+              </div>
+              <p class="demo-error" id="demo-error" role="alert" hidden></p>
+            </div>
+            <div class="sample" id="demo-sample" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="how" aria-labelledby="how-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="how-title">Two ways to use it</h2>
+            <p>Make a one-off change from the toolbar, or save it as a rule that runs every time a page loads.</p>
+          </div>
+          <div class="screens">
+            <figure class="screen">
+              <div class="composite">
+                <div class="frame page-shot">
+                  <img
+                    src="img/page-highlights.png"
+                    width="1720"
+                    height="1040"
+                    alt="An article with every occurrence of the word colour highlighted in yellow; the second one is marked as current."
+                  />
+                </div>
+                <div class="popup-shot">
+                  <picture>
+                    <source srcset="img/popup-dark.png" media="(prefers-color-scheme: dark)" />
+                    <img
+                      src="img/popup-light.png"
+                      width="728"
+                      height="660"
+                      alt="The Wordshift popup with colour in the Find field, color in the Replace field, Word mode selected, and the count 2 of 5."
+                    />
+                  </picture>
+                </div>
+              </div>
+              <figcaption>
+                <h3>Quick Replace</h3>
+                <p>
+                  Open it from the toolbar. Matches are highlighted on the page as you type, with a running count. Step
+                  through them, replace one or all, and undo if the result is not what you wanted.
+                </p>
+                <p>Highlights disappear when the popup closes. Nothing on the page changes until you choose Replace.</p>
+              </figcaption>
+            </figure>
+
+            <figure class="screen">
+              <div class="frame">
+                <picture>
+                  <source srcset="img/library-dark.png" media="(prefers-color-scheme: dark)" />
+                  <img
+                    src="img/library-light.png"
+                    width="2240"
+                    height="1200"
+                    alt="The Rule Library: a list of rules such as colour to color and harbour to harbor, grouped as British to American and Work, with an editor open on the right."
+                  />
+                </picture>
+              </div>
+              <figcaption>
+                <h3>Rules</h3>
+                <p>
+                  Save a replacement as a rule and Wordshift applies it on every visit, including text that arrives
+                  later, such as new comments or an infinite-scroll feed.
+                </p>
+                <p>
+                  The Rule Library keeps rules in groups you can switch on and off, and each rule has a test box to try
+                  it on sample text before saving.
+                </p>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="details" aria-labelledby="details-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="details-title">What a rule can do</h2>
+            <p>Each rule has a find pattern, a replacement, the sites it runs on, and when it runs.</p>
+          </div>
+          <dl class="details">
+            <div>
+              <dt>Three ways to match</dt>
+              <dd>
+                Plain text, whole words only, or a regular expression. Regex replacements can reuse captured text with
+                <code>$1</code>, <code>$&lt;name&gt;</code> and <code>$&amp;</code>.
+              </dd>
+            </div>
+            <div>
+              <dt>Sites you choose</dt>
+              <dd>
+                <code>example.com</code> covers the site and its subdomains. Add a path to narrow it, or list sites to
+                skip. Full URL patterns with <code>*</code> are supported.
+              </dd>
+            </div>
+            <div>
+              <dt>Automatic or on request</dt>
+              <dd>
+                Run a rule on every visit, only when you choose Apply manual rules, or both. Pages that keep loading
+                content are followed as they change.
+              </dd>
+            </div>
+            <div>
+              <dt>Undo and pause</dt>
+              <dd>
+                Every Quick Replace step can be undone. Pausing a site from the toolbar puts its original text back
+                straight away.
+              </dd>
+            </div>
+            <div>
+              <dt>Groups</dt>
+              <dd>
+                Collect related rules, such as spelling conventions or work terms, and switch them on or off together.
+              </dd>
+            </div>
+            <div>
+              <dt>Import and export</dt>
+              <dd>
+                Rules export to a JSON file for backup or another computer. Imports show a report before anything is
+                saved.
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="block" id="privacy" aria-labelledby="privacy-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="privacy-title">What it changes, and what it leaves alone</h2>
+            <p>
+              Wordshift edits text and nothing else, so pages keep working: buttons, forms, video players and web apps
+              behave as they did before.
+            </p>
+          </div>
+          <div class="two-col">
+            <div>
+              <h3 class="col-title">Changes</h3>
+              <ul class="plain-list changes">
+                <li>Visible text on the page, including text inside web components</li>
+                <li>The page title shown in the tab, when an automatic rule matches it</li>
+              </ul>
+            </div>
+            <div>
+              <h3 class="col-title">Leaves alone</h3>
+              <ul class="plain-list">
+                <li>Scripts, styles and the structure of the page</li>
+                <li>Form fields, and anything you are typing or editing</li>
+                <li>
+                  Text a page keeps putting back: after a few attempts Wordshift stops, rather than fighting the page
+                </li>
+                <li>Code: rules are text patterns and never run as programs</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3 class="col-title data-title">Your data</h3>
+          <ul class="plain-list">
+            <li>Rules and settings are saved in your browser's extension storage and nowhere else</li>
+            <li>Wordshift has no server, makes no network requests, and never sends page content or rules anywhere</li>
+            <li>Export creates a file on your computer; import reads one. Nothing is uploaded</li>
+            <li>
+              Site access is used only to read and change text on pages you allowed; remove it at any time in Settings
+            </li>
+          </ul>
+
+          <div class="table-wrap">
+            <table>
+              <caption>
+                Browser permissions Wordshift asks for
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Permission</th>
+                  <th scope="col">When</th>
+                  <th scope="col">Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row"><code>storage</code></th>
+                  <td>At install</td>
+                  <td>Saves your rules and settings on this device.</td>
+                </tr>
+                <tr>
+                  <th scope="row"><code>activeTab</code></th>
+                  <td>At install</td>
+                  <td>Lets Quick Replace work on the tab you are viewing, and only after you open it.</td>
+                </tr>
+                <tr>
+                  <th scope="row"><code>scripting</code></th>
+                  <td>At install</td>
+                  <td>Places Wordshift's text-replacement script on that tab.</td>
+                </tr>
+                <tr>
+                  <th scope="row">Site access</th>
+                  <td>Only when needed</td>
+                  <td>
+                    Requested for the sites an automatic rule covers, when you turn the rule on. It can be removed at
+                    any time in Settings.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="foxreplace" aria-labelledby="fox-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="fox-title">Moving from FoxReplace</h2>
+            <p>Wordshift reads FoxReplace export files, so an existing list can come across in a few minutes.</p>
+          </div>
+          <ol class="steps">
+            <li>
+              <h3>Export from FoxReplace</h3>
+              <p>In FoxReplace, open Options and choose Export. This saves your list as a JSON file.</p>
+            </li>
+            <li>
+              <h3>Import into Wordshift</h3>
+              <p>
+                In the Rule Library, choose Import and pick the file. A report lists how many rules will be added before
+                anything is saved.
+              </p>
+            </li>
+            <li>
+              <h3>Review flagged rules</h3>
+              <p>
+                Rules that used JavaScript functions or HTML mode arrive switched off under Needs review, with their
+                original settings shown, because Wordshift does not run code or rewrite HTML.
+              </p>
+            </li>
+          </ol>
+          <p class="note">Wordshift is an independent project and is not affiliated with FoxReplace.</p>
+        </div>
+      </section>
+
+      <section class="block" id="shortcuts" aria-labelledby="shortcuts-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+            <p>The two toolbar shortcuts can be changed in your browser's extension shortcut settings.</p>
+          </div>
+          <dl class="shortcuts">
+            <div>
+              <dt>Open Quick Replace</dt>
+              <dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>F</kbd></dd>
+            </div>
+            <div>
+              <dt>Apply manual rules to this page</dt>
+              <dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>R</kbd></dd>
+            </div>
+            <div>
+              <dt>Next match, previous match</dt>
+              <dd><kbd>Enter</kbd> / <kbd>Shift</kbd> <kbd>Enter</kbd></dd>
+            </div>
+            <div>
+              <dt>Replace the current match</dt>
+              <dd><kbd>Enter</kbd> in Replace</dd>
+            </div>
+            <div>
+              <dt>Replace all matches</dt>
+              <dd><kbd>Ctrl</kbd> or <kbd>Cmd</kbd> <kbd>Enter</kbd></dd>
+            </div>
+            <div>
+              <dt>Close</dt>
+              <dd><kbd>Esc</kbd></dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <div class="wrap">
+        <span>Wordshift 0.1.0 · MIT License · Blue Harbor Works</span>
+        <span>Requires Firefox 142 or later, or a current Chromium-based browser such as Chrome or Edge.</span>
+      </div>
+    </footer>
+
+    <script>
+      (() => {
+        const SAMPLE = [
+          { tag: 'h3', text: 'The colour of a working harbour' },
+          {
+            tag: 'p',
+            text: 'At first light the water takes its colour from the cranes. By mid-morning the colour shifts again, and the hulls in the harbour set the tone.',
+          },
+          {
+            tag: 'p',
+            text: 'Painters who work here learn to mix a colour quickly. The light changes faster than the tide.',
+          },
+        ];
+
+        const $ = (id) => document.getElementById(id);
+        const findInput = $('demo-find');
+        const replaceInput = $('demo-replace');
+        const count = $('demo-count');
+        const error = $('demo-error');
+        const sample = $('demo-sample');
+        const caseButton = $('demo-case');
+        const undoButton = $('demo-undo');
+        const replaceAllButton = $('demo-replace-all');
+        const modeButtons = [...document.querySelectorAll('[data-mode]')];
+
+        let blocks = SAMPLE.map((b) => ({ ...b }));
+        const history = [];
+        let mode = 'word';
+        let caseSensitive = false;
+
+        const WORD = '[\\p{L}\\p{M}\\p{N}_]';
+        const escapeRegex = (s) => s.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&');
+        const escapeHtml = (s) =>
+          s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+        // Same matching rules as the extension: whitespace runs match any whitespace, word mode checks Unicode letters.
+        function compile() {
+          const find = findInput.value;
+          if (find === '') return { regex: null };
+          let source;
+          if (mode === 'regex') source = find;
+          else {
+            source = find
+              .split(/(\s+)/u)
+              .map((part, i) => (i % 2 ? '\\s+' : escapeRegex(part)))
+              .join('');
+            if (mode === 'word') {
+              const wordChar = new RegExp(WORD, 'u');
+              if (wordChar.test(find[0])) source = `(?<!${WORD})` + source;
+              if (wordChar.test(find[find.length - 1])) source += `(?!${WORD})`;
+            }
+          }
+          try {
+            return { regex: new RegExp(source, caseSensitive ? 'gu' : 'giu') };
+          } catch (e) {
+            return {
+              regex: null,
+              error: String(e.message).replace(/^Invalid regular expression: \/.*\/[a-z]*: /s, ''),
+            };
+          }
+        }
+
+        function matchesIn(text, regex) {
+          const out = [];
+          regex.lastIndex = 0;
+          let m;
+          while ((m = regex.exec(text)) !== null) {
+            if (m[0] === '') {
+              regex.lastIndex++;
+              continue;
+            }
+            out.push(m);
+          }
+          return out;
+        }
+
+        function render() {
+          const { regex, error: message } = compile();
+          error.hidden = !message;
+          error.textContent = message ? message : '';
+          findInput.setAttribute('aria-invalid', message ? 'true' : 'false');
+
+          let total = 0;
+          sample.innerHTML = blocks
+            .map(({ tag, text }) => {
+              if (!regex) return `<${tag}>${escapeHtml(text)}</${tag}>`;
+              let html = '';
+              let cursor = 0;
+              for (const m of matchesIn(text, regex)) {
+                html += escapeHtml(text.slice(cursor, m.index)) + '<mark>' + escapeHtml(m[0]) + '</mark>';
+                cursor = m.index + m[0].length;
+                total++;
+              }
+              return `<${tag}>${html}${escapeHtml(text.slice(cursor))}</${tag}>`;
+            })
+            .join('');
+
+          count.textContent = findInput.value === '' || message ? '' : total === 0 ? 'No matches' : `${total} found`;
+          replaceAllButton.disabled = total === 0;
+          undoButton.disabled = history.length === 0;
+        }
+
+        function replaceAll() {
+          const { regex } = compile();
+          if (!regex) return;
+          const replacement = replaceInput.value;
+          history.push(blocks.map((b) => ({ ...b })));
+          blocks = blocks.map((b) => ({
+            ...b,
+            // Regex mode expands $1, $<name> and $&; the other modes insert the text as typed.
+            text: mode === 'regex' ? b.text.replace(regex, replacement) : b.text.replace(regex, () => replacement),
+          }));
+          render();
+        }
+
+        modeButtons.forEach((button) =>
+          button.addEventListener('click', () => {
+            mode = button.dataset.mode;
+            modeButtons.forEach((b) => b.setAttribute('aria-checked', String(b === button)));
+            render();
+          }),
+        );
+        caseButton.addEventListener('click', () => {
+          caseSensitive = !caseSensitive;
+          caseButton.setAttribute('aria-pressed', String(caseSensitive));
+          render();
+        });
+        findInput.addEventListener('input', render);
+        replaceInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') replaceAll();
+        });
+        replaceAllButton.addEventListener('click', replaceAll);
+        undoButton.addEventListener('click', () => {
+          if (history.length) blocks = history.pop();
+          render();
+        });
+
+        render();
+      })();
+    </script>
+  </body>
+</html>

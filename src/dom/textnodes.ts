@@ -29,11 +29,20 @@ export function isEligibleText(node: Text): boolean {
   return true;
 }
 
+export interface CollectOptions {
+  /** For a Document, whether the <title> text is included. Defaults to true. */
+  includeTitle?: boolean;
+}
+
 /**
  * Text nodes under `root` that hold readable page text: light DOM in document order, then shadow DOM.
- * Enters open shadow roots. For a Document, also includes the <title>.
+ * Enters open shadow roots. For a Document, also includes the <title> unless told otherwise.
  */
-export function collectTextNodes(root: Node, onShadowRoot?: (root: ShadowRoot) => void): Text[] {
+export function collectTextNodes(
+  root: Node,
+  onShadowRoot?: (root: ShadowRoot) => void,
+  options: CollectOptions = {},
+): Text[] {
   const out: Text[] = [];
 
   if (root.nodeType === Node.TEXT_NODE) {
@@ -44,7 +53,7 @@ export function collectTextNodes(root: Node, onShadowRoot?: (root: ShadowRoot) =
 
   if (root.nodeType === Node.DOCUMENT_NODE) {
     const doc = root as Document;
-    const title = doc.querySelector('head > title');
+    const title = options.includeTitle === false ? null : doc.querySelector('head > title');
     if (title) walk(title, out, onShadowRoot);
     if (doc.body) walk(doc.body, out, onShadowRoot);
     return out;

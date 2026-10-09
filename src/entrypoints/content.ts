@@ -38,6 +38,11 @@ class PageController {
   private library: Library | null = null;
   private settings: Settings | null = null;
   private autoActive = false;
+  /** Identifies the automatic rule set last applied, so unrelated storage changes do not redo the page. */
+  private autoKey = '';
+  /** Bumped whenever the rule set changes; passes started under an older value stop at their next yield. */
+  private generation = 0;
+  private reloading: Promise<void> = Promise.resolve();
   private quick: { matches: NodeMatch[]; current: number; error: string | null; warning: string | null } = {
     matches: [],
     current: -1,
@@ -61,8 +66,21 @@ class PageController {
     await this.reload();
   }
 
-  private async reload(): Promise<void> {
+  /** Reloads rules and settings. Calls are queued so two reloads never work on the page at once. */
+  private reload(): Promise<void> {
+    const run = () => this.doReload();
+    this.reloading = this.reloading.then(run, run);
+    return this.reloading;
+  }
+
+  private async doReload(): Promise<void> {
     [{ library: this.library }, this.settings] = await Promise.all([loadLibrary(), loadSettings()]);
+
+    const rules = this.autoRules();
+    const key = rules.map((r) => r.key).join('\n');
+    if (key === this.autoKey) return;
+    this.autoKey = key;
+    this.generation++;
 
     // Start over so edited or removed rules stop affecting the page.
     if (this.autoActive) {
@@ -70,7 +88,6 @@ class PageController {
       this.watcher.discardPending();
     }
 
-    const rules = this.autoRules();
     this.autoActive = rules.length > 0;
     if (!this.autoActive) {
       this.watcher.disconnect();
@@ -87,7 +104,9 @@ class PageController {
 
   private async applyAuto(nodes: Text[]): Promise<void> {
     const rules = this.autoRules();
-    if (rules.length > 0) await this.replacer.applyAuto(nodes, rules);
+    if (rules.length === 0) return;
+    const generation = this.generation;
+    await this.replacer.applyAuto(nodes, rules, { cancelled: () => generation !== this.generation });
   }
 
   private async handle(message: PageRequest): Promise<PageResponse> {
@@ -178,7 +197,9 @@ class PageController {
       return;
     }
     this.quick.warning = compiled.warnings[0] ?? null;
-    this.quick.matches = this.replacer.find(collectTextNodes(document), compiled.pattern);
+    // The tab title is not on the page, so it cannot be highlighted or stepped to.
+    const nodes = collectTextNodes(document, undefined, { includeTitle: false });
+    this.quick.matches = this.replacer.find(nodes, compiled.pattern);
     if (this.quick.matches.length > 0) {
       this.quick.current = Math.min(preferredIndex, this.quick.matches.length - 1);
     }
@@ -228,6 +249,7 @@ class PageController {
     return {
       autoRules: this.replacer.autoCounts.size,
       autoReplacements,
+      manualRules: this.library ? rulesFor(this.library, location.href, 'manual').length : 0,
       canUndo: this.replacer.canUndo,
       paused: this.settings !== null && isPaused(this.settings, location.href),
     };

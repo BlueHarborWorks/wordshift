@@ -14,6 +14,19 @@
     { value: 'word', label: 'Word', title: 'Match whole words only' },
     { value: 'regex', label: 'Regex', title: 'Regular expression; use $1, $<name> in the replacement' },
   ];
+
+  // Arrow keys move between the modes, as they do in a native radio group.
+  function onKeydown(event: KeyboardEvent) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    const index = modes.findIndex((m) => m.value === match);
+    const next = modes[(index + step + modes.length) % modes.length]!;
+    onchange({ match: next.value, caseSensitive });
+    (event.currentTarget as HTMLElement).parentElement
+      ?.querySelector<HTMLElement>(`[data-mode="${next.value}"]`)
+      ?.focus();
+  }
 </script>
 
 <div class="options">
@@ -22,8 +35,11 @@
       <button
         type="button"
         role="radio"
+        data-mode={mode.value}
         aria-checked={match === mode.value}
+        tabindex={match === mode.value ? 0 : -1}
         title={mode.title}
+        onkeydown={onKeydown}
         onclick={() => onchange({ match: mode.value, caseSensitive })}>{mode.label}</button
       >
     {/each}

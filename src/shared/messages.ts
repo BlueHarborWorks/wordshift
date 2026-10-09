@@ -23,6 +23,8 @@ export interface PageStatus {
   /** Automatic rules that changed something on this page. */
   autoRules: number;
   autoReplacements: number;
+  /** Manual rules that cover this page, whether or not they match anything. */
+  manualRules: number;
   canUndo: boolean;
   paused: boolean;
 }

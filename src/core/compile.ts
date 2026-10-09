@@ -67,7 +67,14 @@ export function compilePattern(spec: PatternSpec): CompileResult {
   try {
     regex = new RegExp(source, flags);
   } catch (error) {
-    return { ok: false, error: describeRegexError(error) };
+    // Unicode mode rejects some escapes that older patterns rely on, such as `\-` or a lone `{`.
+    // Fall back to the classic mode so those rules keep working; it only loses astral-character handling.
+    try {
+      if (spec.match !== 'regex') throw error;
+      regex = new RegExp(source, flags.replace('u', ''));
+    } catch {
+      return { ok: false, error: describeRegexError(error) };
+    }
   }
 
   const replacement =

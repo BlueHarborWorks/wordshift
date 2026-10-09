@@ -8,7 +8,7 @@ import { ContentWatcher } from '../src/dom/watcher';
 function active(id: string, spec: Partial<PatternSpec> & { find: string }): ActiveRule {
   const result = compilePattern({ replace: '', match: 'text', caseSensitive: false, ...spec });
   if (!result.ok) throw new Error(result.error);
-  return { id, pattern: result.pattern };
+  return { id, key: id, pattern: result.pattern };
 }
 
 const immediate = { yieldToPage: () => Promise.resolve() };
@@ -40,6 +40,11 @@ describe('collectTextNodes', () => {
     const texts = collectTextNodes(document.body, (r) => roots.push(r)).map((n) => n.data);
     expect(texts).toContain('shadow colour');
     expect(roots).toEqual([host.shadowRoot]);
+  });
+
+  it('can leave the title out, for Quick Replace', () => {
+    const texts = collectTextNodes(document, undefined, { includeTitle: false }).map((n) => n.data.trim());
+    expect(texts[0]).toBe('Colour');
   });
 
   it('ignores nodes inserted inside skipped elements', () => {
@@ -119,6 +124,54 @@ describe('PageReplacer', () => {
     ]);
     expect(result.replacements).toBe(5000);
     expect(yields).toBeGreaterThan(100);
+  });
+
+  it('stops at the next yield once cancelled', async () => {
+    document.body.innerHTML = Array.from({ length: 50 }, (_, i) => `<p>colour ${i}</p>`).join('');
+    let clock = 0;
+    let cancelled = false;
+    const replacer = new PageReplacer({
+      sliceMs: 1,
+      now: () => (clock += 1),
+      yieldToPage: async () => {
+        cancelled = true;
+      },
+    });
+    const result = await replacer.applyAuto(
+      collectTextNodes(document.body),
+      [active('r', { find: 'colour', replace: 'c' })],
+      {
+        cancelled: () => cancelled,
+      },
+    );
+    expect(result.replacements).toBeGreaterThan(0);
+    expect(result.replacements).toBeLessThan(50);
+  });
+
+  it('gives up on a node the page keeps rewriting', async () => {
+    const replacer = new PageReplacer(immediate);
+    const rules = [active('r', { find: 'colour', replace: 'color' })];
+    const h1 = document.querySelector('h1')!.firstChild as Text;
+    let writes = 0;
+    for (let i = 0; i < 10; i++) {
+      h1.data = 'Colour guide'; // the page puts its own text back
+      const result = await replacer.applyAuto([h1], rules);
+      writes += result.nodesChanged;
+    }
+    expect(writes).toBe(6);
+    expect(h1.data).toBe('Colour guide');
+  });
+
+  it('keeps an automatic write recognisable after undoing a Quick Replace on top of it', async () => {
+    const replacer = new PageReplacer(immediate);
+    const h1 = document.querySelector('h1')!.firstChild as Text;
+    await replacer.applyAuto([h1], [active('r', { find: 'colour', replace: 'color' })]);
+    const pattern = active('q', { find: 'color', replace: 'hue' }).pattern;
+    replacer.replaceMatches(replacer.find([h1], pattern));
+    expect(h1.data).toBe('hue');
+    replacer.undoLast();
+    expect(h1.data).toBe('color');
+    expect(replacer.isOwnWrite(h1)).toBe(true);
   });
 
   it('stops at the node limit and says so', async () => {

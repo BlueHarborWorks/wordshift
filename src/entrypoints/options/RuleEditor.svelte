@@ -69,7 +69,22 @@
     draft.enabled = true;
     delete draft.legacy;
   }
+
+  let findInput = $state<HTMLInputElement>();
+  $effect(() => {
+    findInput?.focus();
+  });
+
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      oncancel();
+    }
+  }
 </script>
+
+<!-- The editor is a drawer: Escape anywhere closes it. -->
+<svelte:document onkeydown={onKeydown} />
 
 <form
   class="editor"
@@ -104,6 +119,7 @@
       spellcheck="false"
       autocomplete="off"
       aria-invalid={!compiled.ok && draft.find !== '' ? 'true' : undefined}
+      bind:this={findInput}
       bind:value={draft.find}
     />
     {#if !compiled.ok && draft.find !== ''}
@@ -147,6 +163,9 @@
         spellcheck="false"
         placeholder="example.com&#10;news.example.org/world"
         bind:value={includeText}></textarea>
+      {#if include.length === 0}
+        <p class="hint">Add at least one site, or choose All sites.</p>
+      {/if}
     {/if}
     <label class="label except" for="rule-exclude">Except on</label>
     <textarea id="rule-exclude" class="field mono" rows="2" spellcheck="false" bind:value={excludeText}></textarea>

@@ -32,10 +32,15 @@
 
   let findInput = $state<HTMLInputElement>();
 
+  let lastRequest = 0;
+
   async function request(message: PageRequest) {
     if (tabId === undefined || pageError) return;
+    const seq = ++lastRequest;
     try {
       const response = await sendToPage(tabId, message);
+      // Fast typing can get replies back out of order; only the newest one may update the view.
+      if (seq !== lastRequest) return response;
       status = response.status;
       if (response.quick) quick = response.quick;
       return response;
@@ -106,7 +111,7 @@
     const response = await request({ type: 'page:applyManual' });
     notice = response?.replaced
       ? `Rules made ${plural(response.replaced, 'change', 'changes')}.`
-      : 'No manual rules matched this page.';
+      : 'The manual rules for this site found nothing to change.';
   }
 
   async function setPaused(paused: boolean) {
@@ -155,6 +160,7 @@
   }
 
   const paused = $derived(status?.paused ?? false);
+  const manualRules = $derived(status?.manualRules ?? 0);
   const countLabel = $derived(
     find === '' || quick.error ? '' : quick.count === 0 ? 'No matches' : `${quick.current + 1} of ${quick.count}`,
   );
@@ -287,7 +293,13 @@
         {/if}
       </p>
       <div class="row">
-        <button class="btn" onclick={applyManual} disabled={paused}>Apply manual rules</button>
+        <button
+          class="btn"
+          onclick={applyManual}
+          disabled={paused || manualRules === 0}
+          title={manualRules === 0 ? 'No manual rules cover this site' : `${plural(manualRules, 'rule', 'rules')}`}
+          >Apply manual rules</button
+        >
         {#if host}
           <button class="btn quiet" onclick={() => setPaused(!paused)}>{paused ? 'Resume' : `Pause on ${host}`}</button>
         {/if}

@@ -16,6 +16,23 @@ Sections 1 and 5 cite FoxReplace 2.6.3 file and line numbers, which are kept as 
 | 4 Advanced features              | Not started.                                                                                                                                                            |
 | 5 Store release                  | Not started. Permission model (activeTab plus optional per-site host access) is already in place.                                                                       |
 
+## Audit of the first build (2026-10-09)
+
+A review of the 0.1 code found and fixed:
+
+| Area           | Problem                                                                                                                                                     | Fix                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Content script | Two reloads (for example two quick settings changes) could run over the page at once, and a rule change mid-pass let the old rules finish their pass.       | Reloads are queued; every pass carries a generation number and stops at its next yield when the rules change. |
+| Content script | Any storage change, such as pausing a different site, restored and re-applied every open page.                                                              | A reload only redoes the page when its own automatic rule set actually changed.                               |
+| Page writes    | A page that keeps putting its own text back (framework re-render, ticker) alternated with Wordshift indefinitely.                                           | A node rewritten six times in ten seconds is left alone.                                                      |
+| Undo           | Undoing a Quick Replace that sat on top of an automatic change made Wordshift forget the automatic text was its own, so the watcher could process it again. | The write log keeps the earlier write as Wordshift's.                                                         |
+| Quick Replace  | The tab title counted as a match, so "1 of 4" started on text nobody could see or step to.                                                                  | Quick Replace searches page text only; automatic rules still cover the title.                                 |
+| Popup          | Replies to fast typing could arrive out of order and show a stale count.                                                                                    | Each request is numbered; only the newest reply updates the view.                                             |
+| Site patterns  | `https://example.com` (no trailing slash) never matched because the URL form required the whole URL to match.                                               | URL-form patterns match the start of the URL.                                                                 |
+| Regex rules    | Patterns valid in classic JavaScript regex mode but not Unicode mode (`\-`, a lone `{`), common in FoxReplace lists, were rejected.                         | Compile falls back to classic mode when Unicode mode refuses the pattern.                                     |
+
+UX changes from the same review: "Apply manual rules" is disabled when no manual rule covers the site; the Library shows a banner with a switch when automatic rules are globally off; "Needs site access" on a rule is now a button that asks for the permission; the rule editor focuses Find on open, closes on Escape, and says when "Only these sites" has no entries; the match-mode control supports arrow keys.
+
 Design changes made during the build:
 
 - **Quick Replace lives in the toolbar popup**, not a sidebar or side panel. activeTab is granted by the popup click, so no site access is needed for one-off replacements. Highlights clear when the popup closes. A side panel can be added later if users want it to stay open.

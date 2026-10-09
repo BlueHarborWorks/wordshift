@@ -126,6 +126,15 @@
     commit({ ...library, rules: library.rules.map((r) => (r.id === rule.id ? { ...r, enabled } : r)) });
   }
 
+  function allowAccess(origins: string[]) {
+    void browser.permissions.request({ origins });
+  }
+
+  function setAutoApply(autoApply: boolean) {
+    settings = { ...settings, autoApply };
+    void saveSettings(settings);
+  }
+
   function addGroup() {
     const group = { id: newId(), name: 'New group', enabled: true };
     commit({ ...library, groups: [...library.groups, group] });
@@ -300,10 +309,15 @@
             <button class="btn primary" onclick={newRule}>New rule</button>
           </div>
 
-          {#if accessMissing}
+          {#if !settings.autoApply}
+            <div class="banner">
+              <p>Automatic rules are turned off. Rules only run when you choose “Apply manual rules”.</p>
+              <button class="btn" onclick={() => setAutoApply(true)}>Turn on</button>
+            </div>
+          {:else if accessMissing}
             <div class="banner">
               <p>Some automatic rules cannot run yet because Wordshift does not have access to their sites.</p>
-              <button class="btn" onclick={() => (view = { kind: 'settings' })}>Review site access</button>
+              <button class="btn" onclick={() => allowAccess(requiredOrigins(library))}>Allow access</button>
             </div>
           {/if}
 
@@ -332,7 +346,18 @@
                     hideLabel
                     onchange={(enabled) => toggleRule(rule, enabled)}
                   />
-                  <button class="rule-main" onclick={() => (editing = { rule, isNew: false })}>
+                  <div
+                    class="rule-main"
+                    role="button"
+                    tabindex="0"
+                    onclick={() => (editing = { rule, isNew: false })}
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        editing = { rule, isNew: false };
+                      }
+                    }}
+                  >
                     <span class="pair">
                       <span class="find" class:mono={rule.match === 'regex'}>{rule.find}</span>
                       <span class="arrow" aria-label="becomes">→</span>
@@ -347,12 +372,14 @@
                         {scopeLabel(rule)} · {whenLabel(rule)}{rule.match !== 'text'
                           ? ` · ${rule.match === 'word' ? 'Whole word' : 'Regex'}`
                           : ''}{rule.caseSensitive ? ' · Match case' : ''}{groupOff ? ' · Group off' : ''}
-                        {#if rule.enabled && rule.apply.auto && !hasAccess(rule, granted)}
-                          · <span class="needs">Needs site access</span>
+                        {#if settings.autoApply && rule.enabled && rule.apply.auto && !hasAccess(rule, granted)}
+                          · <button class="needs" onclick={() => allowAccess(permissionOrigins(rule.sites))}
+                            >Needs site access: allow</button
+                          >
                         {/if}
                       {/if}
                     </span>
-                  </button>
+                  </div>
                 </li>
               {/each}
             </ul>
@@ -589,8 +616,13 @@
     font-size: var(--text-sm);
   }
   .needs {
+    padding: 0;
+    border: 0;
+    background: none;
     color: var(--text);
+    font: inherit;
     text-decoration: underline dotted;
+    cursor: pointer;
   }
   li.off .pair {
     color: var(--text-muted);

@@ -17,7 +17,9 @@ export function rulesFor(library: Library, url: string, kind: 'auto' | 'manual')
   for (const rule of liveRules(library)) {
     if (!rule.apply[kind] || !inScope(url, rule.sites)) continue;
     const compiled = compilePattern(rule);
-    if (compiled.ok) out.push({ id: rule.id, pattern: compiled.pattern });
+    if (!compiled.ok) continue;
+    const key = JSON.stringify([rule.id, rule.find, rule.replace, rule.match, rule.caseSensitive]);
+    out.push({ id: rule.id, key, pattern: compiled.pattern });
   }
   return out;
 }

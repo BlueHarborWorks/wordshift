@@ -25,10 +25,14 @@ describe('site form', () => {
 });
 
 describe('URL form', () => {
-  it('matches the whole URL with * wildcards', () => {
+  it('matches the start of the URL with * wildcards', () => {
     expect(matchesSitePattern('https://example.com/a/b', 'https://example.com/*')).toBe(true);
     expect(matchesSitePattern('http://example.com/a', 'https://example.com/*')).toBe(false);
     expect(matchesSitePattern('https://x.test/search?q=cats', '*q=cats*')).toBe(true);
+    expect(matchesSitePattern('https://x.test/search?q=cats&page=2', '*q=cats')).toBe(true);
+    // A pasted address without a trailing slash still covers the site.
+    expect(matchesSitePattern('https://example.com/', 'https://example.com')).toBe(true);
+    expect(matchesSitePattern('https://example.community/', 'https://example.com')).toBe(true);
   });
 });
 
@@ -51,6 +55,7 @@ describe('scopes', () => {
       '*://*.example.com/*',
     ]);
     expect(permissionOrigins({ include: ['https://example.com/a*'], exclude: [] })).toEqual(['https://example.com/*']);
+    expect(permissionOrigins({ include: ['https://example.com'], exclude: [] })).toEqual(['https://example.com/*']);
     expect(permissionOrigins({ include: ['example.*'], exclude: [] })).toEqual([ALL_URLS]);
   });
 });

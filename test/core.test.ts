@@ -84,6 +84,11 @@ describe('regex match', () => {
     if (!result.ok) expect(result.error).not.toMatch(/^Invalid regular expression/);
   });
 
+  it('accepts classic-mode escapes that Unicode mode rejects', () => {
+    expect(run('a-b', { ...spec, find: 'a\\-b', replace: 'X' })).toBe('X');
+    expect(run('x{y', { ...spec, find: 'x{y', replace: 'X' })).toBe('X');
+  });
+
   it('warns about nested repetition', () => {
     const result = compilePattern({ find: '(a+)+$', replace: '', match: 'regex', caseSensitive: false });
     expect(result.ok && result.warnings.length).toBe(1);

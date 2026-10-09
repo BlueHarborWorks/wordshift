@@ -3,6 +3,8 @@ import type { CompiledPattern } from '../core/compile';
 
 export interface ActiveRule {
   id: string;
+  /** Changes whenever the rule's matching or replacement changes. */
+  key: string;
   pattern: CompiledPattern;
 }
 
@@ -34,7 +36,20 @@ export interface ReplacerOptions {
   yieldToPage?: () => Promise<void>;
 }
 
+export interface PassOptions {
+  /** Checked after every yield; a pass stops early when it returns true. */
+  cancelled?: () => boolean;
+}
+
 const AUTO = 0;
+
+/*
+ * Some pages rewrite text Wordshift changed (a framework re-rendering its own state, a ticker).
+ * Each rewrite comes back through the watcher, so without a limit the two would alternate forever.
+ * A node written this many times inside the window is left alone from then on.
+ */
+const FIGHT_LIMIT = 6;
+const FIGHT_WINDOW_MS = 10_000;
 
 /**
  * Changes text nodes and remembers every change so it can be undone.
@@ -44,6 +59,8 @@ export class PageReplacer {
   private changes: Change[] = [];
   /** What Wordshift last wrote to each node, so its own writes are not processed again. */
   private written = new WeakMap<Text, string>();
+  /** Automatic writes per node inside the current window, to spot pages that keep undoing them. */
+  private fights = new WeakMap<Text, { count: number; since: number }>();
   private lastAction = AUTO;
   private readonly perRule = new Map<string, number>();
 
@@ -74,7 +91,11 @@ export class PageReplacer {
   }
 
   /** Applies automatic rules to the given nodes, yielding to the page between slices. */
-  async applyAuto(nodes: readonly Text[], rules: readonly ActiveRule[]): Promise<PassResult> {
+  async applyAuto(
+    nodes: readonly Text[],
+    rules: readonly ActiveRule[],
+    options: PassOptions = {},
+  ): Promise<PassResult> {
     const result: PassResult = { replacements: 0, nodesChanged: 0, truncated: nodes.length > this.maxNodes };
     const limit = Math.min(nodes.length, this.maxNodes);
     let sliceStart = this.now();
@@ -82,10 +103,11 @@ export class PageReplacer {
     for (let i = 0; i < limit; i++) {
       if (this.now() - sliceStart > this.sliceMs) {
         await this.yieldToPage();
+        if (options.cancelled?.()) return result;
         sliceStart = this.now();
       }
       const node = nodes[i]!;
-      if (!node.isConnected || this.isOwnWrite(node)) continue;
+      if (!node.isConnected || this.isOwnWrite(node) || this.isFighting(node)) continue;
 
       let text = node.data;
       let changed = 0;
@@ -103,6 +125,17 @@ export class PageReplacer {
       }
     }
     return result;
+  }
+
+  private isFighting(node: Text): boolean {
+    const now = Date.now();
+    const entry = this.fights.get(node);
+    if (!entry || now - entry.since > FIGHT_WINDOW_MS) {
+      this.fights.set(node, { count: 1, since: now });
+      return false;
+    }
+    entry.count++;
+    return entry.count > FIGHT_LIMIT;
   }
 
   /** Every match of one pattern, for preview and step-through. Includes text Wordshift already changed. */
@@ -183,7 +216,12 @@ export class PageReplacer {
       // Skip nodes the page has rewritten since; restoring them would clobber newer content.
       if (change.node.isConnected && change.node.data === change.after) {
         change.node.data = change.before;
-        this.written.delete(change.node);
+        // The text now showing may still be an earlier Wordshift write (auto rule under a Quick Replace).
+        const earlier = this.changes
+          .slice(0, i)
+          .some((c) => c.node === change.node && c.after === change.before && !select(c));
+        if (earlier) this.written.set(change.node, change.before);
+        else this.written.delete(change.node);
         restored++;
       }
     }

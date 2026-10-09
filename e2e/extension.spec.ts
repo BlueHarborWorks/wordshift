@@ -48,11 +48,11 @@ test('Quick Replace finds, replaces all, and undoes', async ({ context, extensio
 
   await expect(page.locator('#late')).toBeVisible();
   await popup.getByPlaceholder('Find').fill('colour');
-  // Title, heading, paragraph, and the late-loading paragraph; not the textarea.
-  await expect(popup.locator('#find-status')).toHaveText('1 of 4');
+  // Heading, paragraph, and the late-loading paragraph; not the textarea or the tab title.
+  await expect(popup.locator('#find-status')).toHaveText('1 of 3');
   await popup.getByPlaceholder('Replace with').fill('hue');
   await popup.getByPlaceholder('Find').press('Enter');
-  await expect(popup.locator('#find-status')).toHaveText('2 of 4');
+  await expect(popup.locator('#find-status')).toHaveText('2 of 3');
   if (SHOTS) await popup.screenshot({ path: path.join(SHOTS, 'popup-light.png') });
 
   await popup.getByRole('button', { name: 'Replace all' }).click();

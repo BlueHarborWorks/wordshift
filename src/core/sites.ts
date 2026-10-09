@@ -7,7 +7,7 @@ import type { SiteScope } from './types';
  *               example.com/docs       ...only where the path starts with /docs
  *               example.*              `*` matches anything within the host
  *
- *   URL form    https://example.com/*  the whole URL must match; `*` matches anything
+ *   URL form    https://example.com/*  the URL must start with this; `*` matches anything
  *               *://*.example.com/a*   (used when the pattern has "://" or starts with "*")
  */
 
@@ -37,7 +37,8 @@ export function matchesSitePattern(url: string, pattern: string): boolean {
   if (sitePatternError(pattern) !== null) return false;
 
   if (isUrlForm(pattern)) {
-    return new RegExp(`^${globSource(pattern)}$`, 'i').test(url);
+    // A prefix match, so `https://example.com` also covers `https://example.com/` and deeper paths.
+    return new RegExp(`^${globSource(pattern)}`, 'i').test(url);
   }
 
   let parsed: URL;
@@ -78,7 +79,7 @@ export function permissionOrigins(scope: SiteScope): string[] {
     if (sitePatternError(pattern) !== null) continue;
 
     if (isUrlForm(pattern)) {
-      const m = /^(\*|https?):\/\/([^/*]+|\*\.[^/*]+)\//.exec(pattern);
+      const m = /^(\*|https?):\/\/([^/*]+|\*\.[^/*]+)(?:\/|$)/.exec(pattern);
       if (!m) return [ALL_URLS];
       origins.add(`${m[1]}://${m[2]}/*`);
       continue;
