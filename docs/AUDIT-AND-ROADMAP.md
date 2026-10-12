@@ -7,14 +7,18 @@ Sections 1 and 5 cite FoxReplace 2.6.3 file and line numbers, which are kept as 
 
 ## Status
 
-| Phase                            | State                                                                                                                                                                   |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0 Foundation                     | Done: WXT + Svelte 5 + TypeScript, ESLint, Prettier, Vitest, Playwright, CI workflow, MV3 manifests for Chromium and Firefox.                                           |
-| 1 Safe replacement engine        | Done, with one limit noted below.                                                                                                                                       |
-| 2 Storage, schema, import/export | Done. FoxReplace fixtures for 0.14 and 2.6 are tested; 0.15 and 2.1 share the 2.6 code path but have no fixture yet.                                                    |
-| 3 UX rebuild                     | First version done: popup with Quick Replace, Rule Library with editor, groups, import, export, settings. axe-core checks and keyboard-only flow tests are still to do. |
-| 4 Advanced features              | Not started.                                                                                                                                                            |
-| 5 Store release                  | Not started. Permission model (activeTab plus optional per-site host access) is already in place.                                                                       |
+| Phase                            | State                                                                                                                                                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 Foundation                     | Done: WXT + Svelte 5 + TypeScript, ESLint, Prettier, Vitest, Playwright, CI workflow, MV3 manifests for Chromium and Firefox.                                                                                                                                                                   |
+| 1 Safe replacement engine        | Done, with one limit noted below.                                                                                                                                                                                                                                                               |
+| 2 Storage, schema, import/export | Done. FoxReplace fixtures for every supported format version (0.14, 0.15, 2.1, 2.6) are tested.                                                                                                                                                                                                 |
+| 3 UX rebuild                     | Done. Popup with Quick Replace, Rule Library with editor, groups, import, export, settings. axe-core (WCAG 2.2 AA, serious and critical) passes on every screen in both themes; the main flows run by keyboard alone; the Library works at 320 px wide. All of this is in the end-to-end suite. |
+| 4 Advanced features              | Not started.                                                                                                                                                                                                                                                                                    |
+| 5 Store release                  | Not started. Permission model (activeTab plus optional per-site host access) is already in place.                                                                                                                                                                                               |
+
+## Accessibility pass (2026-10-09)
+
+axe-core found one real problem: the faintest grey text (`--text-faint`) failed the 4.5:1 contrast ratio in both themes. The token was darkened in light mode and lightened in dark mode so every use passes. Keyboard runs of the popup and Library flows needed no changes. The 320 px check found the sidebar filling the first screen and the editor landing below the whole list; on narrow screens the navigation is now a compact wrapped bar and the editor replaces the list until it is closed.
 
 ## Audit of the first build (2026-10-09)
 

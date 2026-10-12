@@ -114,6 +114,38 @@ describe('importFoxReplace', () => {
     expect(broken).toMatchObject({ enabled: false, review: 'invalid-pattern' });
   });
 
+  it('converts a 0.15 file (string html mode, no mode field, no outputType)', () => {
+    const result = importFoxReplace(fixture('foxreplace-0.15.json'));
+    if (!result.ok) throw new Error('expected ok');
+    const [recieve, seperate, bold] = result.library.rules;
+    expect(recieve).toMatchObject({
+      find: 'recieve',
+      replace: 'receive',
+      match: 'text',
+      enabled: true,
+      apply: { auto: true, manual: true },
+      sites: { include: ['http://forum.example.net/*'], exclude: [] },
+    });
+    expect(seperate).toMatchObject({ match: 'word', caseSensitive: true });
+    expect(bold).toMatchObject({ enabled: false, review: 'html-mode', legacy: { html: 'inputoutput' } });
+    expect(result.library.groups[1]!.name).toBe('General rules');
+    expect(parseLibrary(JSON.parse(JSON.stringify(result.library))).ok).toBe(true);
+  });
+
+  it('converts a 2.1 file (mode field, exclusions, disabled group)', () => {
+    const result = importFoxReplace(fixture('foxreplace-2.1.json'));
+    if (!result.ok) throw new Error('expected ok');
+    const [utilise, email, date] = result.library.rules;
+    expect(utilise).toMatchObject({
+      apply: { auto: false, manual: true },
+      sites: { include: ['docs.example.org'], exclude: ['docs.example.org/legacy'] },
+    });
+    expect(email).toMatchObject({ find: 'e-mail', match: 'text' });
+    expect(date).toMatchObject({ find: '\\d{4}-\\d{2}-\\d{2}', match: 'regex', apply: { auto: true, manual: false } });
+    expect(result.library.groups.map((g) => g.enabled)).toEqual([true, false]);
+    expect(result.needsReview).toBe(0);
+  });
+
   it('rejects unknown versions', () => {
     expect(importFoxReplace({ version: '9.0', groups: [] }).ok).toBe(false);
   });

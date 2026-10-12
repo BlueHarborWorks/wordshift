@@ -490,7 +490,7 @@
   }
   .empty {
     padding: 4px 8px;
-    color: var(--text-faint);
+    color: var(--text-muted);
     font-size: var(--text-sm);
   }
   .bottom {
@@ -664,19 +664,73 @@
   @media (max-width: 860px) {
     .layout {
       grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
     }
     nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+      padding: 10px 12px;
       border-right: 0;
       border-bottom: 1px solid var(--border);
+    }
+    nav h1 {
+      width: 100%;
+      margin: 0 4px 4px;
+    }
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      margin: 0;
+    }
+    nav li button {
+      width: auto;
+      gap: 6px;
+    }
+    .nav-head {
+      margin: 0;
+    }
+    .nav-head h2 {
+      padding: 0 4px 0 8px;
+    }
+    .empty {
+      padding: 4px;
+    }
+    .bottom {
+      margin-left: auto;
+      padding: 0;
+      border: 0;
+    }
+    main {
+      padding: 12px 16px;
+    }
+    .toolbar {
+      flex-wrap: wrap;
+    }
+    .toolbar h2,
+    .group-name {
+      flex: 1 1 100%;
+      margin: 0;
+    }
+    .spacer {
+      display: none;
+    }
+    .search {
+      flex: 1;
+      width: auto;
+      min-width: 0;
     }
     .content.with-editor {
       grid-template-columns: minmax(0, 1fr);
     }
+    /* On a narrow screen the editor takes the list's place; Cancel or Save brings the list back. */
+    .content.with-editor .rules {
+      display: none;
+    }
     .drawer {
       position: static;
-    }
-    .search {
-      width: 140px;
     }
   }
 </style>

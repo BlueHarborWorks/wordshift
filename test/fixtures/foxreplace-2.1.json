@@ -1,0 +1,26 @@
+{
+  "version": "2.1",
+  "groups": [
+    {
+      "name": "Manual only",
+      "urls": ["docs.example.org", "-docs.example.org/legacy"],
+      "substitutions": [
+        { "input": "utilise", "inputType": "wholewords", "output": "use", "caseSensitive": false },
+        { "input": "e-mail", "inputType": "text", "output": "email", "caseSensitive": false }
+      ],
+      "html": "none",
+      "enabled": true,
+      "mode": "manual"
+    },
+    {
+      "name": "Auto only",
+      "urls": [],
+      "substitutions": [
+        { "input": "\\d{4}-\\d{2}-\\d{2}", "inputType": "regexp", "output": "[date]", "caseSensitive": false }
+      ],
+      "html": "none",
+      "enabled": false,
+      "mode": "auto"
+    }
+  ]
+}
