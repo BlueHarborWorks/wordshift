@@ -384,5 +384,6 @@ Made:
 
 Open:
 
-1. **GitHub repository.** Proposed: a new private repo `BlueHarborWorks/wordshift` with `main` as default. The `BlueHarborWorks/foxreplace` fork stays as a read-only reference, archived later.
-2. **Whether JavaScript functions return at all** (Phase 4) or are dropped permanently in favor of capture references.
+1. **Whether JavaScript functions return at all** (Phase 4) or are dropped permanently in favor of capture references.
+
+Settled on 2026-10-12: the repo `BlueHarborWorks/wordshift` is public, with `main` as default, and the landing page in `site/` is published by GitHub Pages at https://blueharborworks.github.io/wordshift/. The `BlueHarborWorks/foxreplace` fork stays as a read-only reference.

@@ -10,6 +10,8 @@ Find and replace text on web pages, once or automatically, with rules you contro
 
 Built for Firefox (142+) and Chromium browsers, Manifest V3.
 
+Landing page: https://blueharborworks.github.io/wordshift/ (source in `site/`, deployed by the Landing page workflow).
+
 ## Development
 
 ```sh
