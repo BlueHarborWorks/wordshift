@@ -777,7 +777,7 @@
         <div class="wrap">
           <div class="section-head">
             <h2 id="how-title">Two ways to use it</h2>
-            <p>Make a one-off change from the toolbar, or save it as a rule that runs every time a page loads.</p>
+            <p>Keep a change active in one tab, or save it as a rule that runs across future visits.</p>
           </div>
           <div class="screens">
             <figure class="screen">
@@ -797,7 +797,7 @@
                       src="img/popup-light.png"
                       width="728"
                       height="660"
-                      alt="The Wordshift popup with colour in the Find field, color in the Replace field, Word mode selected, and the count 2 of 5."
+                      alt="The Wordshift popup with colour in the Find field, color in the Replace field, Whole mode selected, and the count 2 of 5."
                     />
                   </picture>
                 </div>
@@ -806,7 +806,8 @@
                 <h3>Quick Replace</h3>
                 <p>
                   Open it from the toolbar. Matches are highlighted on the page as you type, with a running count. Step
-                  through them, replace one or all, and undo if the result is not what you wanted.
+                  through them, replace one or all, and undo if the result is not what you wanted. Quick changes stay
+                  active in that tab and reapply after reloads until you remove them.
                 </p>
                 <p>Highlights disappear when the popup closes. Nothing on the page changes until you choose Replace.</p>
               </figcaption>
@@ -844,7 +845,7 @@
         <div class="wrap">
           <div class="section-head">
             <h2 id="details-title">What a rule can do</h2>
-            <p>Each rule has a find pattern, a replacement, the sites it runs on, and when it runs.</p>
+            <p>Each rule has a find pattern, a replacement, and the sites where it runs automatically.</p>
           </div>
           <dl class="details">
             <div>
@@ -862,17 +863,17 @@
               </dd>
             </div>
             <div>
-              <dt>Automatic or on request</dt>
+              <dt>Automatic saved rules</dt>
               <dd>
-                Run a rule on every visit, only when you choose Apply manual rules, or both. Pages that keep loading
-                content are followed as they change.
+                Saved rules run on every visit and continue working as pages load new content. For changes limited to
+                one tab, use Quick Replace without saving a rule.
               </dd>
             </div>
             <div>
               <dt>Undo and pause</dt>
               <dd>
-                Every Quick Replace step can be undone. Pausing a site from the toolbar puts its original text back
-                straight away.
+                Quick Replace actions appear in tab-local history, survive reloads, and can be removed one at a time or
+                restored together. Pausing affects automatic rules only; Quick Replace stays available.
               </dd>
             </div>
             <div>
@@ -1008,16 +1009,12 @@
         <div class="wrap">
           <div class="section-head">
             <h2 id="shortcuts-title">Keyboard shortcuts</h2>
-            <p>The two toolbar shortcuts can be changed in your browser's extension shortcut settings.</p>
+            <p>The toolbar shortcut can be changed in your browser's extension shortcut settings.</p>
           </div>
           <dl class="shortcuts">
             <div>
               <dt>Open Quick Replace</dt>
               <dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>F</kbd></dd>
-            </div>
-            <div>
-              <dt>Apply manual rules to this page</dt>
-              <dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>R</kbd></dd>
             </div>
             <div>
               <dt>Next match, previous match</dt>

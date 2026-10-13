@@ -1,11 +1,11 @@
 # Wordshift
 
-Find and replace text on web pages, once or automatically, with rules you control.
+Find and replace text in one tab or automatically across sites, with rules you control.
 
-- **Quick Replace** from the toolbar: live match count, highlights, step through matches, replace one or all, undo.
+- **Quick Replace** from the toolbar: live match count, highlights, step through matches, and tab-scoped changes that survive reloads until you remove them.
 - **Rules** that run automatically on the sites you choose, including content that loads later.
 - **Safe by design**: Wordshift only changes visible text. It does not run code from rules, rewrite HTML or scripts, or touch what you type in forms. Page structure, listeners, and app state are left alone, and every change can be undone.
-- **Minimal permissions**: no site access at install. Quick Replace uses the current tab only when you open it; automatic rules ask for access to just the sites they use.
+- **Minimal permissions**: no site access at install. Quick Replace uses the current tab after you open it; automatic rules ask for access to just the sites they use.
 - **Import from FoxReplace**: export your FoxReplace list and import it. Rules that used JavaScript functions or HTML mode are kept but turned off for review.
 
 Built for Firefox (142+) and Chromium browsers, Manifest V3.
@@ -29,6 +29,33 @@ npm run dev:firefox    # Firefox with live reload
 | `npm run lint:ext`                | Builds for Firefox and runs `web-ext lint`                                       |
 | `npm run build` / `build:firefox` | Production builds in `.output/`                                                  |
 | `npm run zip` / `zip:firefox`     | Store packages                                                                   |
+
+## AMO reviewer build instructions
+
+The submitted Firefox package contains bundled Svelte and TypeScript output, so the matching
+source archive is provided for review. The build uses only open-source packages downloaded from
+the npm registry; it has no external services or OS-specific build dependencies.
+
+Validated build environments:
+
+- Node.js 24.14.0 with npm 11.9.0 (the AMO default reviewer toolchain)
+- Node.js 26.4.0 with npm 11.17.0 on macOS 15.7.3 (arm64)
+
+From the root of the extracted source archive, run:
+
+```sh
+npm ci
+npm run zip:firefox
+```
+
+The command creates:
+
+- `.output/wordshift-0.1.0-firefox.zip` — the Firefox extension package
+- `.output/wordshift-0.1.0-sources.zip` — the reviewer source archive
+
+The unpacked Firefox build is also available at `.output/firefox-mv3/`. No environment variables,
+credentials, network services, or generated files outside `.output/` are required. `package-lock.json`
+pins the dependency tree used for the reproducible build.
 
 ## Layout
 

@@ -67,13 +67,13 @@ def ext_call(d, js):
 
 def rule(**fields):
     base = dict(id=str(uuid.uuid4()), groupId=None, enabled=True, replace='', match='text', caseSensitive=False,
-                sites=dict(include=[], exclude=[]), apply=dict(auto=True, manual=True), review=None)
+                sites=dict(include=[], exclude=[]), review=None)
     base.update(fields)
     return base
 
 
 def library(rules):
-    return dict(format='wordshift', schemaVersion=1, groups=[], rules=rules)
+    return dict(format='wordshift', schemaVersion=2, groups=[], rules=rules)
 
 
 class FixtureHandler(http.server.BaseHTTPRequestHandler):
@@ -159,6 +159,8 @@ try:
     ext_call(d, f"browser.tabs.create({{ url: '/popup.html?tab={tab_id}' }})")
     popup_tab = wait_for(lambda: list(set(d.window_handles) - before_handles)[0])
     d.switch_to.window(popup_tab)
+    check('Quick Replace is labeled as active for this tab',
+          wait_for(lambda: len(d.find_elements(By.XPATH, "//*[normalize-space()='This tab']")) == 1))
     find = wait_for(lambda: d.find_element(By.ID, 'find'))
     find.send_keys('colour')
     status = lambda: d.find_element(By.ID, 'find-status').text  # noqa: E731
@@ -167,17 +169,34 @@ try:
     time.sleep(0.4)
     find.send_keys(Keys.ENTER)
     check('Enter steps to the next match', wait_for(lambda: status() == '2 of 3'), status())
-    check('Apply manual rules is disabled with no manual rules',
-          d.find_element(By.XPATH, "//button[normalize-space()='Apply manual rules']").get_attribute('disabled') is not None)
+    check('popup has no manual or on-demand rule action',
+          len(d.find_elements(By.XPATH, "//button[contains(., 'on-demand') or contains(., 'manual')]") ) == 0)
     d.find_element(By.XPATH, "//button[normalize-space()='Replace all']").click()
     check('Replace all reports no matches left', wait_for(lambda: status() == 'No matches'), status())
+    check('Quick action appears in page history',
+          wait_for(lambda: len(d.find_elements(By.XPATH, "//*[normalize-space()='Quick changes active in this tab']")) == 1))
+    check('Quick action count is shown',
+          wait_for(lambda: len(d.find_elements(By.XPATH, "//*[normalize-space()='1 action']")) == 1))
+    check('Quick action has an individual remove control',
+          wait_for(lambda: len(d.find_elements(By.XPATH, "//button[starts-with(@aria-label, 'Remove Quick change')]")) == 1))
+    check('toolbar badge shows the tab is active',
+          wait_for(lambda: ext_call(d, f"browser.action.getBadgeText({{ tabId: {tab_id} }})") == '•'))
     d.switch_to.window(page_tab)
     check('Replace all changed the page', d.find_element(By.ID, 'p').text == 'The hue of the sea.')
+    d.refresh()
+    check('Quick action survives a tab reload',
+          wait_for(lambda: d.find_element(By.ID, 'p').text == 'The hue of the sea.'), d.find_element(By.ID, 'p').text)
     d.switch_to.window(popup_tab)
-    d.find_element(By.XPATH, "//button[normalize-space()='Undo']").click()
+    d.refresh()
+    check('Quick action remains listed after reload',
+          wait_for(lambda: len(d.find_elements(By.XPATH, "//*[normalize-space()='Quick changes active in this tab']")) == 1))
+    d.find_element(By.XPATH, "//button[normalize-space()='Undo last']").click()
     time.sleep(0.4)
     d.switch_to.window(page_tab)
     check('Undo restored the page', wait_for(lambda: d.find_element(By.ID, 'p').text == 'The colour of the sea.'))
+    d.switch_to.window(popup_tab)
+    check('toolbar badge clears when no changes are active',
+          wait_for(lambda: ext_call(d, f"browser.action.getBadgeText({{ tabId: {tab_id} }})") == ''))
 
     # 4. Rule Library: create a rule and import a FoxReplace file
     d.switch_to.window(ext_tab)
@@ -188,17 +207,19 @@ try:
     check('editor focuses the Find field', d.switch_to.active_element == find_field)
     find_field.send_keys('teh')
     d.find_element(By.ID, 'rule-replace').send_keys('the')
-    d.find_element(By.XPATH, "//button[@role='radio' and normalize-space()='Word']").click()
+    d.find_element(By.XPATH, "//button[@role='radio' and @aria-label='Whole word']").click()
     d.find_element(By.ID, 'rule-sample').send_keys('teh cat sat on tehm')
     check('rule editor preview', wait_for(lambda: 'the cat sat on tehm' in d.find_element(By.CLASS_NAME, 'preview').text))
     d.find_element(By.XPATH, "//button[normalize-space()='Save']").click()
     check('new rule saved and listed', wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 1))
+    check('rule destination is labeled Replace with',
+          wait_for(lambda: len(d.find_elements(By.XPATH, "//*[contains(@class, 'term-label') and normalize-space()='Replace with']")) == 1))
     d.find_element(By.XPATH, "//button[normalize-space()='Import']").click()
     d.find_element(By.ID, 'import-file').send_keys(str(FOX_FIXTURE))
     check('FoxReplace import report', wait_for(lambda: 'from a FoxReplace file' in d.find_element(By.CLASS_NAME, 'report').text))
     d.find_element(By.XPATH, "//button[normalize-space()='Add to my rules']").click()
-    check('import opens Needs review with the 2 flagged rules',
-          wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 2))
+    check('import opens Needs review with the 3 flagged rules',
+          wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 3))
     d.find_element(By.XPATH, "//nav//button[starts-with(normalize-space(), 'All rules')]").click()
     check('imported rules listed', wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 7))
 

@@ -17,21 +17,20 @@ function rule(overrides: Partial<Rule> = {}): Rule {
     match: 'text',
     caseSensitive: false,
     sites: { include: [], exclude: [] },
-    apply: { auto: true, manual: true },
     review: null,
     ...overrides,
   };
 }
 
 function library(rules: unknown[], groups: unknown[] = []): unknown {
-  return { format: 'wordshift', schemaVersion: 1, groups, rules };
+  return { format: 'wordshift', schemaVersion: 2, groups, rules };
 }
 
 describe('parseLibrary', () => {
   it('round-trips a valid library unchanged', () => {
     const input: Library = {
       format: 'wordshift',
-      schemaVersion: 1,
+      schemaVersion: 2,
       groups: [{ id: 'g1', name: 'Spelling', enabled: true }],
       rules: [rule({ groupId: 'g1', legacy: { kept: true } }), rule({ id: 'r2', match: 'regex', find: '(\\d+)' })],
     };
@@ -68,6 +67,24 @@ describe('parseLibrary', () => {
     expect(b!.groupId).toBeNull();
     expect(result.issues.map((i) => i.path)).toEqual(['rules[1].groupId', 'rules[1].id']);
   });
+
+  it('migrates manual-only schema 1 rules into disabled review items', () => {
+    const legacy = {
+      format: 'wordshift',
+      schemaVersion: 1,
+      groups: [],
+      rules: [{ ...rule(), apply: { auto: false, manual: true } }],
+    };
+    const result = parseLibrary(legacy);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.library.schemaVersion).toBe(2);
+    expect(result.library.rules[0]).toMatchObject({
+      enabled: false,
+      review: 'manual-only',
+      legacy: { previousMode: 'manual-only' },
+    });
+    expect(result.library.rules[0]).not.toHaveProperty('apply');
+  });
 });
 
 describe('importFoxReplace', () => {
@@ -86,8 +103,8 @@ describe('importFoxReplace', () => {
       ['Rules for example.com', false],
       ['Markup', true],
     ]);
-    expect(result.converted).toBe(4);
-    expect(result.needsReview).toBe(2);
+    expect(result.converted).toBe(3);
+    expect(result.needsReview).toBe(3);
 
     const [colour, degrees, linebreak, fn, bar, markup] = rules;
     expect(colour).toMatchObject({ find: 'colour', replace: 'color', match: 'word', enabled: true });
@@ -96,11 +113,11 @@ describe('importFoxReplace', () => {
 
     expect(fn).toMatchObject({ enabled: false, review: 'function-output', legacy: { output: 'match.toUpperCase()' } });
     expect(bar).toMatchObject({
-      enabled: true,
-      apply: { auto: false, manual: true },
+      enabled: false,
+      review: 'manual-only',
       sites: { include: ['example.com', 'https://docs.test/*', '*search?q=*'], exclude: ['example.com/admin'] },
     });
-    expect(markup).toMatchObject({ enabled: false, review: 'html-mode', apply: { auto: true, manual: false } });
+    expect(markup).toMatchObject({ enabled: false, review: 'html-mode' });
 
     // The converted library is itself valid.
     expect(parseLibrary(JSON.parse(JSON.stringify(result.library))).ok).toBe(true);
@@ -110,7 +127,7 @@ describe('importFoxReplace', () => {
     const result = importFoxReplace(fixture('foxreplace-0.14.json'));
     if (!result.ok) throw new Error('expected ok');
     const [teh, broken] = result.library.rules;
-    expect(teh).toMatchObject({ match: 'word', apply: { auto: true, manual: true }, enabled: true });
+    expect(teh).toMatchObject({ match: 'word', enabled: true });
     expect(broken).toMatchObject({ enabled: false, review: 'invalid-pattern' });
   });
 
@@ -123,7 +140,6 @@ describe('importFoxReplace', () => {
       replace: 'receive',
       match: 'text',
       enabled: true,
-      apply: { auto: true, manual: true },
       sites: { include: ['http://forum.example.net/*'], exclude: [] },
     });
     expect(seperate).toMatchObject({ match: 'word', caseSensitive: true });
@@ -137,13 +153,14 @@ describe('importFoxReplace', () => {
     if (!result.ok) throw new Error('expected ok');
     const [utilise, email, date] = result.library.rules;
     expect(utilise).toMatchObject({
-      apply: { auto: false, manual: true },
+      enabled: false,
+      review: 'manual-only',
       sites: { include: ['docs.example.org'], exclude: ['docs.example.org/legacy'] },
     });
     expect(email).toMatchObject({ find: 'e-mail', match: 'text' });
-    expect(date).toMatchObject({ find: '\\d{4}-\\d{2}-\\d{2}', match: 'regex', apply: { auto: true, manual: false } });
+    expect(date).toMatchObject({ find: '\\d{4}-\\d{2}-\\d{2}', match: 'regex' });
     expect(result.library.groups.map((g) => g.enabled)).toEqual([true, false]);
-    expect(result.needsReview).toBe(0);
+    expect(result.needsReview).toBe(2);
   });
 
   it('rejects unknown versions', () => {

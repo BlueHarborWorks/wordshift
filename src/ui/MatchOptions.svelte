@@ -9,9 +9,9 @@
 
   let { match, caseSensitive, onchange }: Props = $props();
 
-  const modes: { value: MatchMode; label: string; title: string }[] = [
-    { value: 'text', label: 'Text', title: 'Match the text anywhere' },
-    { value: 'word', label: 'Word', title: 'Match whole words only' },
+  const modes: { value: MatchMode; label: string; accessibleLabel?: string; title: string }[] = [
+    { value: 'text', label: 'Anywhere', title: 'Match these characters anywhere, including inside words' },
+    { value: 'word', label: 'Whole', accessibleLabel: 'Whole word', title: 'Match only a complete word' },
     { value: 'regex', label: 'Regex', title: 'Regular expression; use $1, $<name> in the replacement' },
   ];
 
@@ -36,6 +36,7 @@
         type="button"
         role="radio"
         data-mode={mode.value}
+        aria-label={mode.accessibleLabel}
         aria-checked={match === mode.value}
         tabindex={match === mode.value ? 0 : -1}
         title={mode.title}
@@ -51,7 +52,7 @@
     title="Match case"
     onclick={() => onchange({ match, caseSensitive: !caseSensitive })}
   >
-    Aa<span class="visually-hidden"> match case</span>
+    Match case
   </button>
 </div>
 
@@ -77,6 +78,7 @@
     font: inherit;
     font-size: var(--text-sm);
     font-weight: 500;
+    white-space: nowrap;
     cursor: pointer;
   }
   button:hover {
@@ -89,9 +91,11 @@
   }
   .case {
     height: 28px;
+    padding: 0 8px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--bg-subtle);
+    white-space: nowrap;
   }
   .case[aria-pressed='true'] {
     border-color: var(--border-strong);

@@ -115,8 +115,7 @@ export function importFoxReplace(input: unknown): FoxReplaceResult {
     groups.push(group);
 
     const htmlMode = version === '0.14' ? (rawGroup.html ? 'inputoutput' : 'none') : String(rawGroup.html ?? 'none');
-    const mode = typeof rawGroup.mode === 'string' ? rawGroup.mode : 'auto&manual';
-    const apply = { auto: mode !== 'manual', manual: mode !== 'auto' };
+    const manualOnly = rawGroup.mode === 'manual';
 
     rawGroup.substitutions.forEach((sub, s) => {
       const sPath = `${gPath}.substitutions[${s}]`;
@@ -137,7 +136,6 @@ export function importFoxReplace(input: unknown): FoxReplaceResult {
         match,
         caseSensitive: sub.caseSensitive === true,
         sites: { include: [...include], exclude: [...exclude] },
-        apply,
         review: null,
       };
 
@@ -162,6 +160,14 @@ export function importFoxReplace(input: unknown): FoxReplaceResult {
       } else if (!compilePattern(rule).ok) {
         rule.review = 'invalid-pattern';
         issues.push({ path: `${sPath}.input`, message: 'Pattern is not valid; rule disabled.', severity: 'warning' });
+      } else if (manualOnly) {
+        rule.review = 'manual-only';
+        rule.legacy = { previousMode: 'manual-only' };
+        issues.push({
+          path: `${gPath}.mode`,
+          message: 'Manual-only rules are not supported; review this rule before enabling it automatically.',
+          severity: 'warning',
+        });
       }
 
       if (match !== 'regex' && /\$[$&`'<\d]/.test(rule.replace)) {

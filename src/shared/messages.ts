@@ -7,7 +7,8 @@ export type PageRequest =
   | { type: 'quick:replaceOne'; spec: PatternSpec }
   | { type: 'quick:replaceAll'; spec: PatternSpec }
   | { type: 'quick:clear' }
-  | { type: 'page:applyManual' }
+  | { type: 'page:clearQuickChanges' }
+  | { type: 'page:removeQuickChange'; actionId: number }
   | { type: 'page:undo' }
   | { type: 'page:status' };
 
@@ -23,10 +24,33 @@ export interface PageStatus {
   /** Automatic rules that changed something on this page. */
   autoRules: number;
   autoReplacements: number;
-  /** Manual rules that cover this page, whether or not they match anything. */
-  manualRules: number;
   canUndo: boolean;
   paused: boolean;
+  /** Tab-scoped Quick Replace actions still active on this page, oldest first. */
+  quickActions: QuickAction[];
+}
+
+export interface QuickAction {
+  /** Page-local undo action identifier. */
+  id: number;
+  find: string;
+  replace: string;
+  replacements: number;
+  match: PatternSpec['match'];
+  caseSensitive: boolean;
+  mode: 'one' | 'all';
+  /** Match position used to restore a single-replacement action after a reload. */
+  matchIndex?: number;
+}
+
+/** Messages between a tab's content script and the background's tab-scoped Quick session store. */
+export type QuickSessionRequest =
+  | { type: 'quickSession:get'; url: string }
+  | { type: 'quickSession:set'; url: string; actions: QuickAction[] }
+  | { type: 'tabState:set'; active: boolean };
+
+export interface QuickSessionResponse {
+  actions: QuickAction[];
 }
 
 export interface PageResponse {

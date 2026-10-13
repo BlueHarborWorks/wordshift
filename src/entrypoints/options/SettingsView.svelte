@@ -38,7 +38,7 @@
       label="Run automatic rules"
       onchange={(autoApply) => onsettings({ ...settings, autoApply })}
     />
-    <p class="hint">When off, rules only run when you choose “Apply manual rules” or use Quick Replace.</p>
+    <p class="hint">When off, saved rules do not run. Quick Replace still works.</p>
   </div>
 
   <div class="block">

@@ -35,11 +35,12 @@ A review of the 0.1 code found and fixed:
 | Site patterns  | `https://example.com` (no trailing slash) never matched because the URL form required the whole URL to match.                                               | URL-form patterns match the start of the URL.                                                                 |
 | Regex rules    | Patterns valid in classic JavaScript regex mode but not Unicode mode (`\-`, a lone `{`), common in FoxReplace lists, were rejected.                         | Compile falls back to classic mode when Unicode mode refuses the pattern.                                     |
 
-UX changes from the same review: "Apply manual rules" is disabled when no manual rule covers the site; the Library shows a banner with a switch when automatic rules are globally off; "Needs site access" on a rule is now a button that asks for the permission; the rule editor focuses Find on open, closes on Escape, and says when "Only these sites" has no entries; the match-mode control supports arrow keys.
+UX changes from the same review: the product now has two execution modes—tab-scoped Quick Replace and automatic saved rules. The earlier manual-rule mode and shortcut were removed because they duplicated automatic rules without a clear visible result. The Library shows a banner with a switch when automatic rules are globally off; "Needs site access" on a rule is a button that asks for the permission; the rule editor focuses Find on open, closes on Escape, and says when "Only these sites" has no entries; the match-mode control supports arrow keys.
 
 Design changes made during the build:
 
-- **Quick Replace lives in the toolbar popup**, not a sidebar or side panel. activeTab is granted by the popup click, so no site access is needed for one-off replacements. Highlights clear when the popup closes. A side panel can be added later if users want it to stay open.
+- **Quick Replace lives in the toolbar popup**, not a sidebar or side panel. activeTab is granted by the popup click, so no site access is needed for tab-scoped replacements. Highlights clear when the popup closes, while applied Quick changes remain active through reloads. A side panel can be added later if users want it to stay open.
+- **Quick Replace is tab-scoped, not a saved rule mode.** Multiple Quick actions can be applied sequentially, survive reloads in that tab, and are listed with individual remove, Undo last, and Restore all controls. They clear when the tab or browser session ends. Pausing a site affects automatic rules only; Quick Replace remains available.
 - **Catastrophic regexes cannot be interrupted mid-match.** JavaScript offers no way to stop a running `RegExp` call, and content-script workers are blocked by many page CSPs. Wordshift instead yields to the page between text nodes, caps nodes per pass, warns about nested repetition such as `(a+)+` in the editor and Quick Replace, and only runs one rule over one text node at a time (never the whole page as one string). The Phase 1 acceptance item about stopping `(a+)+$` mid-string is dropped.
 
 ---
@@ -136,7 +137,7 @@ Imported FoxReplace rules that use removed capabilities are kept but disabled, f
 
 ### Primary flows
 
-1. **One-off replace**: open Quick Replace, type find text, see match count and highlights, step through matches, replace one or all, undo.
+1. **Tab-scoped replace**: open Quick Replace, type find text, see match count and highlights, step through matches, replace one or all, and keep the changes active through reloads until removed.
 2. **Save as rule**: from Quick Replace, "Save as rule", choose site scope (this site / all sites / custom), choose group.
 3. **Automatic rules**: in the Library, enable a rule or group for automatic application; the content script applies it on load and to new content.
 4. **Is anything changing this page?**: popup shows which rules applied here and how many replacements, with a per-site pause.
@@ -154,11 +155,11 @@ Imported FoxReplace rules that use removed capabilities are kept but disabled, f
 | Wordshift                     [gear]    |
 | example.com                          |
 | 3 rules applied, 41 replacements     |
-| [ Pause on this site ]               |
+| [ Pause automatic rules ]           |
 |--------------------------------------|
-| [ Quick Replace ]                    |
-| [ Apply manual rules now ]           |
-| [ Undo last change ]                 |
+| Quick Replace (this tab)             |
+| Active here: 2 actions               |
+| [ Undo last ] [ Restore all ]        |
 |--------------------------------------|
 | Auto-apply rules   (o) on            |
 | Open Rule Library                    |
@@ -195,12 +196,12 @@ Regex errors show inline under the field with the error position. Highlights are
 |  All rules     |----------------------------------------------|
 |  Spelling   12 | [on] colour -> color      All sites   Auto   |
 |  Work       4  | [on] \bteh\b -> the       All sites   Auto   |
-|  Needs review 2| [off] grey -> gray        *.gov.uk    Manual |
+|  Needs review 2| [off] grey -> gray        *.gov.uk    Review |
 |----------------|----------------------------------------------|
 | Import         | Rule detail (right drawer on select)         |
 | Export         |  Find / Replace / Match type / Case          |
 | Settings       |  Sites: include / exclude list               |
-|                |  Apply: automatic / manual                   |
+|                |  Runs automatically                          |
 |                |  Advanced (collapsed): form fields, attrs    |
 |                |  Test box: paste text, see result            |
 +----------------+----------------------------------------------+
@@ -257,12 +258,12 @@ Reference points for tone: the Firefox about:preferences page and the macOS Syst
 }
 ```
 
-### Wordshift format (schema v1)
+### Wordshift format (schema v2)
 
 ```json
 {
   "format": "wordshift",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "groups": [{ "id": "", "name": "", "enabled": true }],
   "rules": [
     {
@@ -275,7 +276,6 @@ Reference points for tone: the Firefox about:preferences page and the macOS Syst
       "caseSensitive": false,
       "replace": "",
       "sites": { "include": [], "exclude": [] },
-      "apply": { "auto": true, "manual": true },
       "targets": { "text": true, "formFields": false, "urlAttributes": false },
       "review": null,
       "legacy": null
@@ -293,7 +293,7 @@ Validated with a JSON Schema at import and on every storage read; `schemaVersion
 | group `name`, `enabled`                               | group                                                               | Empty names get the upstream default label.                                                                   |
 | `urls` entries                                        | `sites.include`                                                     | Converted to match patterns; anchored by host. Ambiguous substring patterns are flagged.                      |
 | `urls` entries starting with `-`                      | `sites.exclude`                                                     |                                                                                                               |
-| `mode`                                                | `apply.auto` / `apply.manual`                                       | `auto&manual` sets both.                                                                                      |
+| `mode`                                                | automatic rule or disabled review item                              | Manual-only imports are disabled for review so they never become automatic silently.                          |
 | `inputType`                                           | `match`                                                             | `wholewords` maps to `word`.                                                                                  |
 | `outputType: text`                                    | `replace`                                                           | Upstream `\n`, `\t`, `\\` escapes preserved.                                                                  |
 | `outputType: function`                                | rule disabled, `review: "function-output"`, source kept in `legacy` | Never executed. Simple cases (for example `match.toUpperCase()`) may be offered a suggested equivalent later. |

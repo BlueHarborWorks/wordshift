@@ -2,7 +2,7 @@
 export type MatchMode = 'text' | 'word' | 'regex';
 
 /** Why an imported rule was disabled and needs the user's attention. */
-export type ReviewReason = 'function-output' | 'html-mode' | 'site-pattern' | 'invalid-pattern';
+export type ReviewReason = 'function-output' | 'html-mode' | 'site-pattern' | 'invalid-pattern' | 'manual-only';
 
 export interface SiteScope {
   /** Empty means every site. */
@@ -20,8 +20,6 @@ export interface Rule {
   match: MatchMode;
   caseSensitive: boolean;
   sites: SiteScope;
-  /** `auto` runs on page load and on new content; `manual` runs on "Apply rules now". */
-  apply: { auto: boolean; manual: boolean };
   review: ReviewReason | null;
   /** Original data kept from an import when the rule could not be converted faithfully. */
   legacy?: unknown;
@@ -33,7 +31,7 @@ export interface Group {
   enabled: boolean;
 }
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** The persisted rule set, and the export file format. Rule order is array order. */
 export interface Library {

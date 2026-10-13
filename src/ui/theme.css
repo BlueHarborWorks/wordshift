@@ -15,6 +15,9 @@
   --on-primary: #ffffff;
   --danger: #b42318;
   --focus: #2f6fde;
+  --success: #237a45;
+  --success-bg: #edf8f0;
+  --success-border: #a8d8b7;
 
   --radius: 6px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -40,6 +43,9 @@
     --on-primary: #1a1a19;
     --danger: #f2826f;
     --focus: #7aa7ff;
+    --success: #7fcea0;
+    --success-bg: #1d2c22;
+    --success-border: #3f7653;
   }
 }
 

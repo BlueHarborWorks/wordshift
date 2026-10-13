@@ -106,16 +106,16 @@ test('Quick Replace works by keyboard alone', async ({ context, extensionId, sw 
 
   // Arrow keys change the match mode; Ctrl+Enter in Replace replaces all.
   await popup.keyboard.press('Tab');
-  await expect(popup.getByRole('radio', { name: 'Text' })).toBeFocused();
+  await expect(popup.getByRole('radio', { name: 'Anywhere' })).toBeFocused();
   await popup.keyboard.press('ArrowRight');
-  await expect(popup.getByRole('radio', { name: 'Word' })).toHaveAttribute('aria-checked', 'true');
+  await expect(popup.getByRole('radio', { name: 'Whole word' })).toHaveAttribute('aria-checked', 'true');
   await popup.getByPlaceholder('Replace with').focus();
   await popup.keyboard.press('ControlOrMeta+Enter');
   await expect(popup.locator('#find-status')).toHaveText('No matches');
   await expect(page.locator('#p')).toHaveText('The hue of the sea.');
 
   // Undo is reachable by Tab and works with Enter.
-  await popup.getByRole('button', { name: 'Undo' }).focus();
+  await popup.getByRole('button', { name: 'Undo last' }).focus();
   await popup.keyboard.press('Enter');
   await expect(page.locator('#p')).toHaveText('The colour of the sea.');
 });

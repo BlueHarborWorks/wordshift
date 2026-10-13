@@ -99,6 +99,45 @@ describe('PageReplacer', () => {
     expect(replacer.canUndo).toBe(true);
   });
 
+  it('restores one Quick Replace action without removing another', () => {
+    const replacer = new PageReplacer(immediate);
+    const h1 = document.querySelector('h1')!.firstChild as Text;
+    const paragraph = document.querySelector('p')!.lastChild as Text;
+    const firstAction = replacer.newAction();
+    const secondAction = replacer.newAction();
+
+    replacer.replaceMatches(replacer.find([h1], active('q1', { find: 'Colour', replace: 'Hue' }).pattern), firstAction);
+    replacer.replaceMatches(
+      replacer.find([paragraph], active('q2', { find: 'sky', replace: 'sea' }).pattern),
+      secondAction,
+    );
+    expect(h1.data).toBe('Hue');
+    expect(paragraph.data).toContain('sea');
+
+    replacer.restoreAction(firstAction);
+    expect(h1.data).toBe('Colour');
+    expect(paragraph.data).toContain('sea');
+    expect(replacer.canUndo).toBe(true);
+  });
+
+  it('replays a newer Quick action on the same text node when an older one is restored', () => {
+    document.body.innerHTML = '<p>colour sky</p>';
+    const node = document.querySelector('p')!.firstChild as Text;
+    const replacer = new PageReplacer(immediate);
+    const firstAction = replacer.newAction();
+    replacer.replaceMatches(
+      replacer.find([node], active('q1', { find: 'colour', replace: 'hue' }).pattern),
+      firstAction,
+    );
+    replacer.replaceMatches(replacer.find([node], active('q2', { find: 'sky', replace: 'sea' }).pattern));
+    expect(node.data).toBe('hue sea');
+
+    replacer.restoreAction(firstAction);
+    expect(node.data).toBe('colour sea');
+    replacer.undoLast();
+    expect(node.data).toBe('colour sky');
+  });
+
   it('does not clobber text the page changed after Wordshift did', async () => {
     const replacer = new PageReplacer(immediate);
     await replacer.applyAuto(collectTextNodes(document), [active('r', { find: 'colour', replace: 'color' })]);
@@ -172,6 +211,19 @@ describe('PageReplacer', () => {
     replacer.undoLast();
     expect(h1.data).toBe('color');
     expect(replacer.isOwnWrite(h1)).toBe(true);
+  });
+
+  it('does not resurrect a paused automatic change when Quick changes are restored', async () => {
+    const replacer = new PageReplacer(immediate);
+    const h1 = document.querySelector('h1')!.firstChild as Text;
+    await replacer.applyAuto([h1], [active('r', { find: 'colour', replace: 'color' })]);
+    const pattern = active('q', { find: 'color', replace: 'hue' }).pattern;
+    replacer.replaceMatches(replacer.find([h1], pattern));
+
+    replacer.restoreAuto();
+    expect(h1.data).toBe('hue');
+    replacer.restoreQuick();
+    expect(h1.data).toBe('Colour');
   });
 
   it('stops at the node limit and says so', async () => {

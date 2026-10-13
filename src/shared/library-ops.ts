@@ -18,7 +18,6 @@ export function createRule(fields: {
     match: fields.match,
     caseSensitive: fields.caseSensitive,
     sites: fields.sites ?? { include: [], exclude: [] },
-    apply: { auto: true, manual: true },
     review: null,
   };
 }

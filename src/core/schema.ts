@@ -17,10 +17,34 @@ export function newId(): string {
 }
 
 /** Upgrades a document from version N to N + 1. Keyed by N. */
-const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {};
+const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {
+  1: (doc) => ({
+    ...doc,
+    schemaVersion: 2,
+    rules: Array.isArray(doc.rules)
+      ? doc.rules.map((raw) => {
+          if (!isObject(raw)) return raw;
+          const { apply, ...rule } = raw;
+          if (!isObject(apply) || apply.auto !== false) return rule;
+          return {
+            ...rule,
+            enabled: false,
+            review: typeof rule.review === 'string' ? rule.review : 'manual-only',
+            legacy: { ...(isObject(rule.legacy) ? rule.legacy : {}), previousMode: 'manual-only' },
+          };
+        })
+      : doc.rules,
+  }),
+};
 
 const MATCH_MODES: readonly MatchMode[] = ['text', 'word', 'regex'];
-const REVIEW_REASONS: readonly ReviewReason[] = ['function-output', 'html-mode', 'site-pattern', 'invalid-pattern'];
+const REVIEW_REASONS: readonly ReviewReason[] = [
+  'function-output',
+  'html-mode',
+  'site-pattern',
+  'invalid-pattern',
+  'manual-only',
+];
 
 type Obj = Record<string, unknown>;
 
@@ -126,7 +150,6 @@ function parseRule(raw: unknown, path: string, groupIds: ReadonlySet<string>, is
   if (!include) return drop('sites.include', 'Expected a list of site patterns.');
   if (!exclude) return drop('sites.exclude', 'Expected a list of site patterns.');
 
-  const apply = isObject(raw.apply) ? raw.apply : {};
   let groupId = typeof raw.groupId === 'string' ? raw.groupId : null;
   if (groupId !== null && !groupIds.has(groupId)) {
     warn('groupId', 'Unknown group; rule moved out of its group.');
@@ -142,7 +165,6 @@ function parseRule(raw: unknown, path: string, groupIds: ReadonlySet<string>, is
     match: raw.match as MatchMode,
     caseSensitive: raw.caseSensitive === true,
     sites: { include, exclude },
-    apply: { auto: apply.auto !== false, manual: apply.manual !== false },
     review: REVIEW_REASONS.includes(raw.review as ReviewReason) ? (raw.review as ReviewReason) : null,
   };
   if (raw.legacy !== undefined) rule.legacy = raw.legacy;

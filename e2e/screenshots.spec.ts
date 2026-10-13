@@ -21,13 +21,12 @@ const demoLibrary = () => {
     match: 'text',
     caseSensitive: false,
     sites: { include: [], exclude: [] },
-    apply: { auto: true, manual: true },
     review: null,
     ...fields,
   });
   return {
     format: 'wordshift',
-    schemaVersion: 1,
+    schemaVersion: 2,
     groups: [
       { id: spelling, name: 'British to American', enabled: true },
       { id: work, name: 'Work', enabled: true },
@@ -53,7 +52,6 @@ const demoLibrary = () => {
         find: 'Q4 planning',
         replace: 'Q4 roadmap',
         sites: { include: ['docs.example.com'], exclude: [] },
-        apply: { auto: false, manual: true },
       }),
       rule(null, { find: 'e-mail', replace: 'email', match: 'word' }),
     ],
@@ -73,7 +71,7 @@ test('capture landing page screenshots', async ({ context, extensionId, sw }) =>
     await popup.goto(`chrome-extension://${extensionId}/popup.html?tab=${tabId}`);
     await popup.getByPlaceholder('Find').fill('colour');
     await popup.getByPlaceholder('Replace with').fill('color');
-    await popup.getByRole('radio', { name: 'Word' }).click();
+    await popup.getByRole('radio', { name: 'Whole word' }).click();
     await expect(popup.locator('#find-status')).toHaveText('1 of 5');
     await popup.getByPlaceholder('Find').press('Enter');
     await expect(popup.locator('#find-status')).toHaveText('2 of 5');

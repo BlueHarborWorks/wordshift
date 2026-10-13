@@ -11,11 +11,11 @@ export function liveRules(library: Library): Rule[] {
   );
 }
 
-/** Compiled rules of one kind that apply to `url`, in library order. */
-export function rulesFor(library: Library, url: string, kind: 'auto' | 'manual'): ActiveRule[] {
+/** Compiled automatic rules that apply to `url`, in library order. */
+export function rulesFor(library: Library, url: string): ActiveRule[] {
   const out: ActiveRule[] = [];
   for (const rule of liveRules(library)) {
-    if (!rule.apply[kind] || !inScope(url, rule.sites)) continue;
+    if (!inScope(url, rule.sites)) continue;
     const compiled = compilePattern(rule);
     if (!compiled.ok) continue;
     const key = JSON.stringify([rule.id, rule.find, rule.replace, rule.match, rule.caseSensitive]);
@@ -41,7 +41,6 @@ export function isPaused(settings: Settings, url: string): boolean {
 export function requiredOrigins(library: Library): string[] {
   const origins = new Set<string>();
   for (const rule of liveRules(library)) {
-    if (!rule.apply.auto) continue;
     for (const origin of permissionOrigins(rule.sites)) origins.add(origin);
   }
   return origins.has(ALL_URLS) ? [ALL_URLS] : [...origins];

@@ -77,12 +77,11 @@ export function rule(fields: Record<string, unknown>) {
     match: 'text',
     caseSensitive: false,
     sites: { include: [], exclude: [] },
-    apply: { auto: true, manual: true },
     review: null,
     ...fields,
   };
 }
 
 export function library(rules: unknown[]) {
-  return { format: 'wordshift', schemaVersion: 1, groups: [], rules };
+  return { format: 'wordshift', schemaVersion: 2, groups: [], rules };
 }

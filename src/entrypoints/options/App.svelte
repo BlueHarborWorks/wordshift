@@ -87,8 +87,13 @@
   const disabledGroups = $derived(new Set(library.groups.filter((g) => !g.enabled).map((g) => g.id)));
   const required = $derived(requiredOrigins(library));
   const accessMissing = $derived(
-    settings.autoApply && library.rules.some((r) => r.enabled && !r.review && r.apply.auto && !hasAccess(r, granted)),
+    settings.autoApply && library.rules.some((r) => r.enabled && !r.review && !hasAccess(r, granted)),
   );
+  const actionableVisible = $derived(visible.filter((rule) => rule.review === null));
+  const canEnableVisible = $derived(
+    actionableVisible.some((rule) => !rule.enabled) || (currentGroup !== undefined && !currentGroup.enabled),
+  );
+  const canDisableVisible = $derived(actionableVisible.some((rule) => rule.enabled));
 
   function groupCount(id: string) {
     return library.rules.filter((r) => r.groupId === id).length;
@@ -104,7 +109,7 @@
 
   function saveRule(rule: Rule) {
     // Ask for site access inside the click, before anything is awaited, so the browser allows the prompt.
-    if (rule.enabled && rule.apply.auto && settings.autoApply && !hasAccess(rule, granted)) {
+    if (rule.enabled && settings.autoApply && !hasAccess(rule, granted)) {
       void browser.permissions.request({ origins: permissionOrigins(rule.sites) });
     }
     const exists = library.rules.some((r) => r.id === rule.id);
@@ -120,10 +125,39 @@
   }
 
   function toggleRule(rule: Rule, enabled: boolean) {
-    if (enabled && rule.apply.auto && settings.autoApply && !hasAccess(rule, granted)) {
+    if (enabled && settings.autoApply && !hasAccess(rule, granted)) {
       void browser.permissions.request({ origins: permissionOrigins(rule.sites) });
     }
     commit({ ...library, rules: library.rules.map((r) => (r.id === rule.id ? { ...r, enabled } : r)) });
+  }
+
+  function setVisibleRulesEnabled(enabled: boolean) {
+    if (actionableVisible.length === 0) return;
+    const before = library;
+    const ids = actionableVisible.map((rule) => rule.id);
+
+    if (enabled && settings.autoApply) {
+      const origins: string[] = [];
+      for (const rule of actionableVisible) {
+        if (hasAccess(rule, granted)) continue;
+        for (const origin of permissionOrigins(rule.sites)) if (!origins.includes(origin)) origins.push(origin);
+      }
+      if (origins.length > 0) void browser.permissions.request({ origins });
+    }
+
+    const next = {
+      ...library,
+      groups:
+        currentGroup === undefined
+          ? library.groups
+          : library.groups.map((group) => (group.id === currentGroup.id ? { ...group, enabled } : group)),
+      rules: library.rules.map((rule) => (ids.includes(rule.id) ? { ...rule, enabled } : rule)),
+    };
+    commit(
+      next,
+      `${actionableVisible.length} ${actionableVisible.length === 1 ? 'rule' : 'rules'} ${enabled ? 'enabled' : 'disabled'}.`,
+      before,
+    );
   }
 
   function allowAccess(origins: string[]) {
@@ -184,16 +218,12 @@
     return text;
   }
 
-  function whenLabel(rule: Rule) {
-    if (rule.apply.auto && rule.apply.manual) return 'Auto';
-    return rule.apply.auto ? 'Auto only' : 'Manual';
-  }
-
   const REVIEW_SHORT = {
     'function-output': 'Needs review: used a JavaScript function',
     'html-mode': 'Needs review: used HTML mode',
     'site-pattern': 'Needs review: site patterns',
     'invalid-pattern': 'Needs review: invalid pattern',
+    'manual-only': 'Needs review: previously manual-only',
   } as const;
 </script>
 
@@ -303,6 +333,14 @@
             {:else}
               <h2>{view.filter === 'review' ? 'Needs review' : 'All rules'}</h2>
             {/if}
+            <div class="bulk-actions" aria-label="Bulk rule actions">
+              <button class="btn" disabled={!canEnableVisible} onclick={() => setVisibleRulesEnabled(true)}
+                >Enable all</button
+              >
+              <button class="btn" disabled={!canDisableVisible} onclick={() => setVisibleRulesEnabled(false)}
+                >Disable all</button
+              >
+            </div>
             <span class="spacer"></span>
             <label class="visually-hidden" for="search">Search rules</label>
             <input id="search" class="field search" type="search" placeholder="Search" bind:value={query} />
@@ -311,7 +349,7 @@
 
           {#if !settings.autoApply}
             <div class="banner">
-              <p>Automatic rules are turned off. Rules only run when you choose “Apply manual rules”.</p>
+              <p>Automatic rules are turned off. Quick Replace still works.</p>
               <button class="btn" onclick={() => setAutoApply(true)}>Turn on</button>
             </div>
           {:else if accessMissing}
@@ -359,20 +397,26 @@
                     }}
                   >
                     <span class="pair">
-                      <span class="find" class:mono={rule.match === 'regex'}>{rule.find}</span>
+                      <span class="term">
+                        <span class="term-label">Find</span>
+                        <span class="find" class:mono={rule.match === 'regex'}>{rule.find}</span>
+                      </span>
                       <span class="arrow" aria-label="becomes">→</span>
-                      <span class="replace" class:mono={rule.match === 'regex'}
-                        >{rule.replace === '' ? '(remove)' : rule.replace}</span
-                      >
+                      <span class="term">
+                        <span class="term-label">Replace with</span>
+                        <span class="replace" class:mono={rule.match === 'regex'}
+                          >{rule.replace === '' ? '(remove)' : rule.replace}</span
+                        >
+                      </span>
                     </span>
                     <span class="meta">
                       {#if rule.review}
                         {REVIEW_SHORT[rule.review]}
                       {:else}
-                        {scopeLabel(rule)} · {whenLabel(rule)}{rule.match !== 'text'
+                        {scopeLabel(rule)} · Automatic{rule.match !== 'text'
                           ? ` · ${rule.match === 'word' ? 'Whole word' : 'Regex'}`
                           : ''}{rule.caseSensitive ? ' · Match case' : ''}{groupOff ? ' · Group off' : ''}
-                        {#if settings.autoApply && rule.enabled && rule.apply.auto && !hasAccess(rule, granted)}
+                        {#if settings.autoApply && rule.enabled && !hasAccess(rule, granted)}
                           · <button class="needs" onclick={() => allowAccess(permissionOrigins(rule.sites))}
                             >Needs site access: allow</button
                           >
@@ -380,6 +424,12 @@
                       {/if}
                     </span>
                   </div>
+                  <button
+                    class="btn quiet danger row-delete"
+                    aria-label={`Delete rule ${rule.find}`}
+                    title="Delete rule"
+                    onclick={() => deleteRule(rule)}>Delete</button
+                  >
                 </li>
               {/each}
             </ul>
@@ -513,11 +563,13 @@
   }
   .toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
   }
   .toolbar h2 {
+    flex: none;
     font-size: var(--text-lg);
   }
   .group-name {
@@ -539,6 +591,10 @@
   }
   .search {
     width: 200px;
+  }
+  .bulk-actions {
+    display: flex;
+    gap: 4px;
   }
   .spacer {
     flex: 1;
@@ -595,9 +651,29 @@
     cursor: pointer;
   }
   .pair {
-    display: flex;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
     min-width: 0;
+  }
+  .term {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+    padding: 4px 7px;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 1px);
+    background: var(--bg-subtle);
+  }
+  .term-label {
+    flex: none;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .find,
   .replace {
@@ -610,6 +686,7 @@
   }
   .arrow {
     color: var(--text-faint);
+    text-align: center;
   }
   .meta {
     color: var(--text-muted);
@@ -623,6 +700,10 @@
     font: inherit;
     text-decoration: underline dotted;
     cursor: pointer;
+  }
+  .row-delete {
+    flex: none;
+    margin-right: 4px;
   }
   li.off .pair {
     color: var(--text-muted);
@@ -640,6 +721,8 @@
     align-self: start;
     position: sticky;
     top: 16px;
+    height: calc(100vh - 32px);
+    overflow: hidden;
     padding: 16px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -731,6 +814,8 @@
     }
     .drawer {
       position: static;
+      height: auto;
+      overflow: visible;
     }
   }
 </style>

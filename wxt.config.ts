@@ -8,7 +8,7 @@ export default defineConfig({
   outDir: process.env.WORDSHIFT_E2E ? '.output-e2e' : '.output',
   manifest: ({ browser }) => ({
     name: 'Wordshift',
-    description: 'Find and replace text on web pages, once or automatically, with rules you control.',
+    description: 'Find and replace text in one tab or automatically across sites, with rules you control.',
     homepage_url: 'https://github.com/BlueHarborWorks/wordshift',
     // activeTab covers Quick Replace on the current tab. Sites for automatic rules are requested
     // at runtime, only when the user turns them on.
@@ -21,10 +21,6 @@ export default defineConfig({
       _execute_action: {
         suggested_key: { default: 'Alt+Shift+F' },
         description: 'Open Quick Replace',
-      },
-      'apply-manual-rules': {
-        suggested_key: { default: 'Alt+Shift+R' },
-        description: 'Apply manual rules to this page',
       },
     },
     ...(browser === 'firefox' && {

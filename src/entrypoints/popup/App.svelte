@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { permissionOrigins } from '../../core/sites';
+  import { inScope, permissionOrigins } from '../../core/sites';
   import type { Library, MatchMode, Settings } from '../../core/types';
-  import type { PageRequest, PageStatus, QuickState } from '../../shared/messages';
+  import type { PageRequest, PageStatus, QuickAction, QuickState } from '../../shared/messages';
   import { createRule } from '../../shared/library-ops';
   import { hostOf } from '../../shared/rules';
   import { loadLibrary, loadSettings, saveLibrary, saveSettings } from '../../shared/storage';
@@ -12,6 +12,7 @@
   const DRAFT_KEY = 'quickDraft';
 
   let tabId: number | undefined;
+  let tabUrl = $state('');
   let host = $state('');
   let ready = $state(false);
   let pageError = $state<string | null>(null);
@@ -25,7 +26,7 @@
   let status = $state<PageStatus | null>(null);
   let notice = $state('');
 
-  let library: Library | null = null;
+  let library = $state<Library | null>(null);
   let settings = $state<Settings | null>(null);
   let saveScope = $state<'site' | 'all'>('site');
   let saveOpen = $state(false);
@@ -34,18 +35,26 @@
 
   let lastRequest = 0;
 
-  async function request(message: PageRequest) {
+  async function request(message: PageRequest, retries = 0) {
     if (tabId === undefined || pageError) return;
     const seq = ++lastRequest;
-    try {
-      const response = await sendToPage(tabId, message);
-      // Fast typing can get replies back out of order; only the newest one may update the view.
-      if (seq !== lastRequest) return response;
-      status = response.status;
-      if (response.quick) quick = response.quick;
-      return response;
-    } catch {
-      pageError = 'Wordshift lost contact with this page. Reload it and try again.';
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const response = await sendToPage(tabId, message);
+        // Fast typing can get replies back out of order; only the newest one may update the view.
+        if (seq !== lastRequest) return response;
+        status = response.status;
+        if (response.quick) quick = response.quick;
+        return response;
+      } catch {
+        if (seq !== lastRequest) return;
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          continue;
+        }
+        pageError = 'Wordshift lost contact with this page. Reload it and try again.';
+        return;
+      }
     }
   }
 
@@ -56,7 +65,8 @@
       ? [await browser.tabs.get(forcedTab)]
       : await browser.tabs.query({ active: true, currentWindow: true });
     tabId = tab?.id;
-    host = hostOf(tab?.url ?? '');
+    tabUrl = tab?.url ?? '';
+    host = hostOf(tabUrl);
 
     const session = browser.storage.session ?? browser.storage.local;
     const draft = (await session.get(DRAFT_KEY))[DRAFT_KEY] as
@@ -72,7 +82,9 @@
         await preparePage(tabId);
         // Highlights belong to this popup; the page clears them when it closes.
         browser.tabs.connect(tabId, { name: 'quick', frameId: 0 });
-        await request({ type: 'page:status' });
+        // Firefox may resolve executeScript just before a large page finishes registering its
+        // message listener. Retry this read-only handshake briefly; never retry mutations.
+        await request({ type: 'page:status' }, 8);
       } catch {
         pageError = 'Wordshift cannot change this page. Browser pages and add-on stores are protected.';
       }
@@ -94,24 +106,40 @@
   });
 
   async function replaceOne() {
-    await request({ type: 'quick:replaceOne', spec: currentSpec() });
+    const response = await request({ type: 'quick:replaceOne', spec: currentSpec() });
+    if (response?.replaced)
+      notice = `Applied ${plural(response.replaced, 'replacement', 'replacements')} and kept it active in this tab.`;
   }
 
   async function replaceAll() {
     const response = await request({ type: 'quick:replaceAll', spec: currentSpec() });
-    if (response?.replaced) notice = `Replaced ${plural(response.replaced, 'match', 'matches')}.`;
+    if (response?.replaced)
+      notice = `Applied ${plural(response.replaced, 'replacement', 'replacements')} and kept it active in this tab.`;
   }
 
   async function undo() {
-    await request({ type: 'page:undo' });
-    notice = 'Undone.';
+    const response = await request({ type: 'page:undo' });
+    if (response) notice = 'Undid the last Quick Replace action.';
   }
 
-  async function applyManual() {
-    const response = await request({ type: 'page:applyManual' });
-    notice = response?.replaced
-      ? `Rules made ${plural(response.replaced, 'change', 'changes')}.`
-      : 'The manual rules for this site found nothing to change.';
+  async function restoreQuickChanges() {
+    const response = await request({ type: 'page:clearQuickChanges' });
+    if (response) notice = 'Restored all Quick Replace changes on this page.';
+  }
+
+  async function removeQuickChange(action: QuickAction) {
+    const response = await request({ type: 'page:removeQuickChange', actionId: action.id });
+    if (response) notice = 'Restored that Quick Replace change.';
+  }
+
+  async function clearQuickSearch() {
+    find = '';
+    replace = '';
+    match = 'text';
+    caseSensitive = false;
+    saveOpen = false;
+    await request({ type: 'quick:clear' });
+    notice = 'Quick Replace search cleared.';
   }
 
   async function setPaused(paused: boolean) {
@@ -121,6 +149,38 @@
     settings = { ...settings, pausedSites };
     await saveSettings(settings);
     setTimeout(() => void request({ type: 'page:status' }), 150);
+  }
+
+  function turnOnAutomaticRules() {
+    if (!settings) return;
+    settings = { ...settings, autoApply: true };
+    void saveSettings(settings);
+    notice = 'Automatic replacement is on.';
+    setTimeout(() => void request({ type: 'page:status' }), 150);
+  }
+
+  function turnOnMatchingGroups() {
+    if (!library || disabledPageGroups.length === 0) return;
+    const groupCount = disabledPageGroups.length;
+    const ids = disabledPageGroups.map((group) => group.id);
+    const origins: string[] = [];
+    if (settings?.autoApply) {
+      for (const rule of library.rules) {
+        if (rule.groupId === null || !ids.includes(rule.groupId) || !rule.enabled || rule.review) continue;
+        for (const origin of permissionOrigins(rule.sites)) if (!origins.includes(origin)) origins.push(origin);
+      }
+    }
+
+    // Keep the permission request in the click handler. Firefox may close the popup when it prompts.
+    const permission = origins.length > 0 ? browser.permissions.request({ origins }) : null;
+    library = {
+      ...library,
+      groups: library.groups.map((group) => (ids.includes(group.id) ? { ...group, enabled: true } : group)),
+    };
+    void saveLibrary(library);
+    notice = `${groupCount === 1 ? 'Group' : 'Groups'} turned on.`;
+    void permission?.catch(() => undefined);
+    setTimeout(() => void request({ type: 'page:status' }), 200);
   }
 
   function saveAsRule() {
@@ -160,22 +220,72 @@
   }
 
   const paused = $derived(status?.paused ?? false);
-  const manualRules = $derived(status?.manualRules ?? 0);
+  const quickActions = $derived(status?.quickActions ?? []);
+  const hasQuickSearch = $derived(find !== '' || replace !== '' || match !== 'text' || caseSensitive);
+  const disabledPageGroups = $derived.by(() => {
+    if (!library || tabUrl === '') return [];
+    const groupIds = new Set(
+      library.rules
+        .filter((rule) => rule.groupId !== null && rule.enabled && rule.review === null && inScope(tabUrl, rule.sites))
+        .map((rule) => rule.groupId!),
+    );
+    return library.groups.filter((group) => !group.enabled && groupIds.has(group.id));
+  });
+  const disabledPageRuleCount = $derived(
+    library
+      ? library.rules.filter(
+          (rule) =>
+            rule.groupId !== null &&
+            disabledPageGroups.some((group) => group.id === rule.groupId) &&
+            rule.enabled &&
+            rule.review === null &&
+            inScope(tabUrl, rule.sites),
+        ).length
+      : 0,
+  );
+  const disabledGroupLabel = $derived(
+    disabledPageGroups.length === 1
+      ? `“${disabledPageGroups[0]!.name}” group`
+      : `${disabledPageGroups.length} matching groups`,
+  );
+  const siteState = $derived(
+    paused
+      ? 'Automatic rules paused'
+      : settings && !settings.autoApply
+        ? 'Automatic rules off'
+        : disabledPageGroups.length > 0
+          ? 'Needs attention'
+          : 'Active',
+  );
   const countLabel = $derived(
     find === '' || quick.error ? '' : quick.count === 0 ? 'No matches' : `${quick.current + 1} of ${quick.count}`,
+  );
+  const matchHelp = $derived(
+    match === 'text'
+      ? 'Anywhere matches inside words too — “cat” matches “catalog”.'
+      : match === 'word'
+        ? 'Whole word matches only complete words — “cat” skips “catalog”.'
+        : 'Regex matches a regular-expression pattern for advanced searches.',
   );
 </script>
 
 <main>
   <header>
     <h1>Wordshift</h1>
-    <button class="btn quiet" onclick={() => browser.runtime.openOptionsPage()}>Rule Library</button>
+    <button class="btn" onclick={() => browser.runtime.openOptionsPage()}>Open Rule Library</button>
   </header>
 
   {#if pageError}
     <p class="page-error">{pageError}</p>
   {:else}
     <section class="quick" aria-label="Quick Replace">
+      <div class="section-head">
+        <h2>Quick replace</h2>
+        <span class="status-chip">This tab</span>
+      </div>
+      <p class="section-help">
+        Stays active in this tab and reapplies after reloads, even when automatic rules are paused.
+      </p>
       <div class="row">
         <label class="visually-hidden" for="find">Find</label>
         <input
@@ -234,6 +344,7 @@
           </button>
         </div>
       </div>
+      <p class="match-help" aria-live="polite">{matchHelp}</p>
 
       {#if quick.error}
         <p class="error" role="alert">{quick.error}</p>
@@ -251,9 +362,44 @@
           onclick={replaceAll}
           title="Ctrl+Enter or Cmd+Enter in the Replace field">Replace all</button
         >
-        <span class="spacer"></span>
-        <button class="btn quiet" disabled={!status?.canUndo} onclick={undo}>Undo</button>
       </div>
+
+      {#if quickActions.length > 0}
+        <div class="quick-history" aria-label="Quick changes active in this tab">
+          <div class="history-head">
+            <strong>Quick changes active in this tab</strong>
+            <span>{plural(quickActions.length, 'action', 'actions')}</span>
+          </div>
+          <ul>
+            {#each quickActions as action, index (index)}
+              <li>
+                <span class="history-map" title={`${action.find} → ${action.replace}`}>
+                  <code>{action.find}</code><span aria-hidden="true">→</span><code>{action.replace || '(empty)'}</code>
+                </span>
+                <span class="history-end">
+                  <span class="history-count" title={plural(action.replacements, 'replacement', 'replacements')}
+                    >{action.replacements}</span
+                  >
+                  <button
+                    class="remove-quick"
+                    aria-label={`Remove Quick change ${action.find} to ${action.replace || 'empty'}`}
+                    title="Restore this Quick change"
+                    onclick={() => removeQuickChange(action)}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.75" />
+                    </svg>
+                  </button>
+                </span>
+              </li>
+            {/each}
+          </ul>
+          <div class="row history-actions">
+            <button class="btn" disabled={!status?.canUndo} onclick={undo}>Undo last</button>
+            <button class="btn quiet" onclick={restoreQuickChanges}>Restore all Quick changes</button>
+          </div>
+        </div>
+      {/if}
 
       <div class="save">
         {#if saveOpen}
@@ -266,10 +412,17 @@
             <button class="btn primary" disabled={find === '' || !!quick.error} onclick={saveAsRule}>Save</button>
             <button class="btn quiet" onclick={() => (saveOpen = false)}>Cancel</button>
           </div>
+          <p class="hint permission-hint">
+            Your browser may ask for access to {saveScope === 'all' ? 'all websites' : host} when you save so the rule can
+            run automatically.
+          </p>
         {:else}
-          <button class="btn quiet link" disabled={find === '' || !!quick.error} onclick={() => (saveOpen = true)}
-            >Save as rule…</button
-          >
+          <div class="row between">
+            <button class="btn quiet link" disabled={find === '' || !!quick.error} onclick={() => (saveOpen = true)}
+              >Save as automatic rule…</button
+            >
+            <button class="btn quiet" disabled={!hasQuickSearch} onclick={clearQuickSearch}>Clear search</button>
+          </div>
         {/if}
       </div>
     </section>
@@ -278,30 +431,55 @@
       <p class="notice" role="status">{notice}</p>
     {/if}
 
-    <section class="page" aria-label="This page">
-      <p class="muted">
-        {#if paused}
-          Paused on {host}.
-        {:else if status && status.autoReplacements > 0}
-          {plural(status.autoRules, 'automatic rule', 'automatic rules')} made {plural(
-            status.autoReplacements,
-            'change',
-            'changes',
-          )} here.
-        {:else}
-          No automatic rules changed this page.
-        {/if}
-      </p>
-      <div class="row">
-        <button
-          class="btn"
-          onclick={applyManual}
-          disabled={paused || manualRules === 0}
-          title={manualRules === 0 ? 'No manual rules cover this site' : `${plural(manualRules, 'rule', 'rules')}`}
-          >Apply manual rules</button
+    <section class="page" aria-label="This site">
+      <div class="section-head">
+        <h2>This site</h2>
+        <span class:success={siteState === 'Active'} class:attention={siteState !== 'Active'} class="status-chip"
+          >{siteState}</span
         >
-        {#if host}
-          <button class="btn quiet" onclick={() => setPaused(!paused)}>{paused ? 'Resume' : `Pause on ${host}`}</button>
+      </div>
+
+      {#if paused}
+        <div class="activation">
+          <p><strong>Automatic rules are paused on {host}.</strong> Quick Replace above still works.</p>
+          <button class="btn primary" onclick={() => setPaused(false)}>Resume automatic rules</button>
+        </div>
+      {:else if settings && !settings.autoApply}
+        <div class="activation">
+          <p><strong>Automatic rules are off.</strong> Quick Replace above still works.</p>
+          <button class="btn primary" onclick={turnOnAutomaticRules}>Turn on automatic rules</button>
+        </div>
+      {:else if disabledPageGroups.length > 0}
+        <div class="activation">
+          <p>
+            <strong>{disabledGroupLabel} {disabledPageGroups.length === 1 ? 'is' : 'are'} off.</strong>
+            {plural(disabledPageRuleCount, 'matching rule cannot', 'matching rules cannot')} run on this site.
+          </p>
+          <button class="btn primary" onclick={turnOnMatchingGroups}
+            >Turn on {disabledPageGroups.length === 1 ? 'group' : 'groups'}</button
+          >
+        </div>
+      {:else}
+        <p class:success={status && status.autoReplacements > 0} class="site-summary muted">
+          {#if status && status.autoReplacements > 0}
+            {plural(status.autoRules, 'automatic rule', 'automatic rules')} made {plural(
+              status.autoReplacements,
+              'change',
+              'changes',
+            )} here.
+          {:else if status && status.autoRules > 0}
+            {plural(status.autoRules, 'automatic rule is', 'automatic rules are')} on. No matching text was found yet.
+          {:else}
+            No enabled automatic rules apply to this site.
+          {/if}
+        </p>
+      {/if}
+
+      <div class="row">
+        {#if host && !paused}
+          <button class="btn" title={`Pause automatic rules on ${host}`} onclick={() => setPaused(true)}
+            >Pause automatic rules</button
+          >
         {/if}
       </div>
     </section>
@@ -322,10 +500,45 @@
   h1 {
     font-size: var(--text-lg);
   }
+  h2 {
+    font-size: var(--text-md);
+  }
   .quick {
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .section-help {
+    margin: -3px 0 2px;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+  .status-chip.attention {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .status-chip.success {
+    border-color: var(--success-border);
+    background: var(--success-bg);
+    color: var(--success);
   }
   .row {
     position: relative;
@@ -350,14 +563,99 @@
     display: flex;
     gap: 2px;
   }
+  .nav .btn {
+    width: 24px;
+  }
   .actions {
     margin-top: 2px;
   }
-  .spacer {
-    flex: 1;
+  .match-help {
+    margin: -3px 0 0;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
   }
   .save select {
     flex: 1;
+  }
+  .permission-hint {
+    margin-top: 6px;
+  }
+  .quick-history {
+    padding: 8px;
+    border: 1px solid var(--success-border);
+    border-radius: var(--radius);
+    background: var(--success-bg);
+  }
+  .history-head,
+  .quick-history li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .history-head {
+    margin-bottom: 5px;
+    color: var(--success);
+    font-size: var(--text-sm);
+  }
+  .history-head span,
+  .history-count {
+    color: var(--success);
+    font-size: var(--text-xs);
+  }
+  .quick-history ul {
+    max-height: 82px;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    list-style: none;
+  }
+  .quick-history li {
+    padding: 4px 0;
+    border-top: 1px solid var(--border);
+  }
+  .history-map {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+  }
+  .history-map code {
+    max-width: 104px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-count {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .history-end {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 5px;
+  }
+  .remove-quick {
+    display: inline-grid;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--danger);
+    cursor: pointer;
+  }
+  .remove-quick:hover {
+    border-color: var(--danger);
+  }
+  .remove-quick:active {
+    transform: translateY(1px);
+  }
+  .history-actions {
+    margin-top: 7px;
   }
   .link {
     padding: 0 4px;
@@ -373,7 +671,28 @@
     padding-top: 10px;
     border-top: 1px solid var(--border);
   }
-  .page p {
+  .site-summary {
+    margin-top: 8px !important;
+  }
+  .site-summary.success {
+    color: var(--success);
+    font-weight: 500;
+  }
+  .activation {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 8px 0;
+    padding: 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg-subtle);
+  }
+  .activation p {
+    margin: 0;
+  }
+  .page > p {
     margin: 0 0 8px;
     font-size: var(--text-sm);
   }
