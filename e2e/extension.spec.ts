@@ -145,7 +145,7 @@ test('Quick Replace finds, replaces all, and undoes', async ({ context, extensio
   if (SHOTS) await popup.screenshot({ path: path.join(SHOTS, 'popup-dark.png') });
 });
 
-test('Rule Library creates rules and imports FoxReplace files', async ({ context, extensionId, sw }) => {
+test('Rule Library creates rules and imports Wordshift backups', async ({ context, extensionId, sw }) => {
   const page = await context.newPage();
   await page.setViewportSize({ width: 1180, height: 760 });
   await page.goto(`chrome-extension://${extensionId}/options.html`);
@@ -179,15 +179,15 @@ test('Rule Library creates rules and imports FoxReplace files', async ({ context
   expect(stored.rules[0]).toMatchObject({ find: 'teh', replace: 'the', match: 'word' });
 
   await page.getByRole('button', { name: 'Import' }).click();
-  await page.getByLabel('File').setInputFiles(path.resolve('test/fixtures/foxreplace-2.6.json'));
-  await expect(page.getByText('from a FoxReplace file')).toBeVisible();
+  await page.getByLabel('File').setInputFiles(path.resolve('test/fixtures/wordshift-sample.json'));
+  await expect(page.getByText('from a Wordshift file')).toBeVisible();
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'library-import.png') });
   await page.getByRole('button', { name: 'Add to my rules' }).click();
 
   const nav = page.getByRole('navigation');
-  await expect(nav.getByRole('button', { name: 'Needs review 3' })).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Needs review 1' })).toBeVisible();
   await nav.getByRole('button', { name: /All rules/ }).click();
-  await expect(page.locator('.rule-list li')).toHaveCount(7);
+  await expect(page.locator('.rule-list li')).toHaveCount(3);
   await page.getByRole('button', { name: 'Disable all' }).click();
   await expect
     .poll(() =>

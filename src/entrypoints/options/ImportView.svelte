@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { importFoxReplace, isFoxReplaceFile } from '../../core/foxreplace';
   import { parseLibrary, type Issue } from '../../core/schema';
   import type { Library } from '../../core/types';
 
@@ -10,7 +9,7 @@
 
   let { onimport, oncancel }: Props = $props();
 
-  let pending = $state<{ library: Library; source: string; needsReview: number; issues: Issue[] } | null>(null);
+  let pending = $state<{ library: Library; needsReview: number; issues: Issue[] } | null>(null);
   let error = $state<string | null>(null);
 
   async function onfile(event: Event) {
@@ -27,21 +26,6 @@
       return;
     }
 
-    if (isFoxReplaceFile(json)) {
-      const result = importFoxReplace(json);
-      if (!result.ok) {
-        error = result.issues[0]?.message ?? 'Could not read this FoxReplace file.';
-        return;
-      }
-      pending = {
-        library: result.library,
-        source: 'FoxReplace',
-        needsReview: result.needsReview,
-        issues: result.issues,
-      };
-      return;
-    }
-
     const result = parseLibrary(json);
     if (!result.ok) {
       error = result.issues[0]?.message ?? 'Could not read this file.';
@@ -49,7 +33,6 @@
     }
     pending = {
       library: result.library,
-      source: 'Wordshift',
       needsReview: result.library.rules.filter((r) => r.review).length,
       issues: result.issues,
     };
@@ -58,7 +41,7 @@
 
 <section class="import">
   <h2>Import rules</h2>
-  <p class="muted">Choose a Wordshift export, or a FoxReplace export (Options, Export) to bring your rules over.</p>
+  <p class="muted">Choose a Wordshift JSON export to restore or transfer your rules.</p>
 
   <label class="label" for="import-file">File</label>
   <input id="import-file" type="file" accept=".json,application/json" onchange={onfile} />
@@ -71,7 +54,7 @@
     <div class="report" role="status">
       <p>
         <strong>{pending.library.rules.length}</strong> rules in
-        <strong>{pending.library.groups.length}</strong> groups from a {pending.source} file.
+        <strong>{pending.library.groups.length}</strong> groups from a Wordshift file.
         {#if pending.needsReview > 0}
           {pending.needsReview} will be turned off until you review them.
         {/if}

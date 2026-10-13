@@ -2,7 +2,7 @@
   "name": "wordshift",
   "description": "Find and replace text in one tab or automatically across sites, with rules you control.",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",

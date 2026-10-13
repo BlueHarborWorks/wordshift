@@ -387,7 +387,7 @@
               {#if library.rules.length === 0}
                 <p>No rules yet.</p>
                 <p class="muted">
-                  Create one here, or use “Save as rule” in the toolbar popup. Coming from FoxReplace? Use Import.
+                  Create one here, use “Save as rule” in the toolbar popup, or import a Wordshift backup.
                 </p>
               {:else}
                 <p class="muted">No rules match.</p>

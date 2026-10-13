@@ -29,10 +29,10 @@
 
   const REVIEW_TEXT: Record<ReviewReason, string> = {
     'function-output':
-      'This rule came from FoxReplace and used a JavaScript function to build its replacement. Wordshift does not run code from rules. Rewrite the replacement as text (in Regex mode you can use $1 or $<name>), then mark it reviewed.',
+      'This imported rule used a JavaScript function to build its replacement. Wordshift does not run code from rules. Rewrite the replacement as text (in Regex mode you can use $1 or $<name>), then mark it reviewed.',
     'html-mode':
-      'This rule came from FoxReplace and used HTML mode. Wordshift only changes text, so the result may differ. Check the replacement, then mark it reviewed.',
-    'site-pattern': 'Some of this rule’s FoxReplace URL patterns could not be converted. Check where it runs.',
+      'This imported rule used HTML mode. Wordshift only changes text, so the result may differ. Check the replacement, then mark it reviewed.',
+    'site-pattern': 'Some imported site patterns could not be converted. Check where this rule runs.',
     'invalid-pattern': 'The find pattern is not valid. Fix it to use this rule.',
     'manual-only':
       'This rule previously ran only on demand. Wordshift now uses automatic saved rules. Check where it runs, then mark it reviewed to enable it automatically.',

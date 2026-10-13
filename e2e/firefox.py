@@ -27,7 +27,7 @@ from selenium.webdriver.firefox.service import Service
 
 ROOT = Path(__file__).resolve().parent.parent
 EXT = ROOT / '.output-e2e' / 'firefox-mv3'
-FOX_FIXTURE = ROOT / 'test' / 'fixtures' / 'foxreplace-2.6.json'
+IMPORT_FIXTURE = ROOT / 'test' / 'fixtures' / 'wordshift-sample.json'
 FIREFOX_BIN = os.environ.get('FIREFOX_BIN', '/Applications/Firefox.app/Contents/MacOS/firefox')
 UUID = '3f2a6c1e-0000-4000-8000-000000000001'
 BASE = f'moz-extension://{UUID}/'
@@ -198,7 +198,7 @@ try:
     check('toolbar badge clears when no changes are active',
           wait_for(lambda: ext_call(d, f"browser.action.getBadgeText({{ tabId: {tab_id} }})") == ''))
 
-    # 4. Rule Library: create a rule and import a FoxReplace file
+    # 4. Rule Library: create a rule and import a Wordshift backup
     d.switch_to.window(ext_tab)
     d.execute_script('location.reload()')
     time.sleep(0.8)
@@ -215,13 +215,13 @@ try:
     check('rule destination is labeled Replace with',
           wait_for(lambda: len(d.find_elements(By.XPATH, "//*[contains(@class, 'term-label') and normalize-space()='Replace with']")) == 1))
     d.find_element(By.XPATH, "//button[normalize-space()='Import']").click()
-    d.find_element(By.ID, 'import-file').send_keys(str(FOX_FIXTURE))
-    check('FoxReplace import report', wait_for(lambda: 'from a FoxReplace file' in d.find_element(By.CLASS_NAME, 'report').text))
+    d.find_element(By.ID, 'import-file').send_keys(str(IMPORT_FIXTURE))
+    check('Wordshift import report', wait_for(lambda: 'from a Wordshift file' in d.find_element(By.CLASS_NAME, 'report').text))
     d.find_element(By.XPATH, "//button[normalize-space()='Add to my rules']").click()
-    check('import opens Needs review with the 3 flagged rules',
-          wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 3))
+    check('import opens Needs review with the flagged rule',
+          wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 1))
     d.find_element(By.XPATH, "//nav//button[starts-with(normalize-space(), 'All rules')]").click()
-    check('imported rules listed', wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 7))
+    check('imported rules listed', wait_for(lambda: len(d.find_elements(By.CSS_SELECTOR, '.rule-list li')) == 3))
 
     # 5. A real website (skipped offline)
     if not os.environ.get('WORDSHIFT_OFFLINE'):

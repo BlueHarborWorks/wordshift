@@ -1,0 +1,29 @@
+{
+  "format": "wordshift",
+  "schemaVersion": 2,
+  "groups": [{ "id": "g-imported", "name": "Imported examples", "enabled": true }],
+  "rules": [
+    {
+      "id": "r-imported-word",
+      "groupId": "g-imported",
+      "enabled": true,
+      "find": "colour",
+      "replace": "color",
+      "match": "word",
+      "caseSensitive": false,
+      "sites": { "include": [], "exclude": [] },
+      "review": null
+    },
+    {
+      "id": "r-imported-invalid",
+      "groupId": "g-imported",
+      "enabled": true,
+      "find": "(",
+      "replace": "",
+      "match": "regex",
+      "caseSensitive": false,
+      "sites": { "include": ["example.com"], "exclude": [] },
+      "review": null
+    }
+  ]
+}

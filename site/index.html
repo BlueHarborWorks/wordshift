@@ -607,44 +607,6 @@
         font-weight: 400;
       }
 
-      /* Migration steps */
-      .steps {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 32px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        counter-reset: step;
-      }
-      .steps li {
-        display: grid;
-        gap: 8px;
-        align-content: start;
-        counter-increment: step;
-      }
-      .steps li::before {
-        content: counter(step);
-        display: grid;
-        place-items: center;
-        width: 28px;
-        height: 28px;
-        border: 1px solid var(--rule-strong);
-        border-radius: 50%;
-        font: 500 var(--step--1) var(--mono);
-      }
-      .steps h3 {
-        font: 600 var(--step-0) var(--body);
-      }
-      .steps p {
-        color: var(--ink-soft);
-      }
-      .note {
-        margin-top: 32px;
-        color: var(--ink-soft);
-        font-size: var(--step--1);
-      }
-
       /* Shortcuts */
       .shortcuts {
         display: grid;
@@ -690,8 +652,7 @@
         .screen {
           grid-template-columns: minmax(0, 1fr);
         }
-        .details,
-        .steps {
+        .details {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .hero {
@@ -700,7 +661,6 @@
       }
       @media (max-width: 560px) {
         .details,
-        .steps,
         .shortcuts {
           grid-template-columns: minmax(0, 1fr);
         }
@@ -737,7 +697,6 @@
           <a href="#how">How it works</a>
           <a href="#details">Rules</a>
           <a href="#privacy">Privacy</a>
-          <a href="#foxreplace">From FoxReplace</a>
           <a href="#shortcuts">Shortcuts</a>
           <a href="https://github.com/BlueHarborWorks/wordshift">GitHub</a>
         </nav>
@@ -1022,36 +981,6 @@
         </div>
       </section>
 
-      <section class="block" id="foxreplace" aria-labelledby="fox-title">
-        <div class="wrap">
-          <div class="section-head">
-            <h2 id="fox-title">Moving from FoxReplace</h2>
-            <p>Wordshift reads FoxReplace export files, so an existing list can come across in a few minutes.</p>
-          </div>
-          <ol class="steps">
-            <li>
-              <h3>Export from FoxReplace</h3>
-              <p>In FoxReplace, open Options and choose Export. This saves your list as a JSON file.</p>
-            </li>
-            <li>
-              <h3>Import into Wordshift</h3>
-              <p>
-                In the Rule Library, choose Import and pick the file. A report lists how many rules will be added before
-                anything is saved.
-              </p>
-            </li>
-            <li>
-              <h3>Review flagged rules</h3>
-              <p>
-                Rules that used JavaScript functions or HTML mode arrive switched off under Needs review, with their
-                original settings shown, because Wordshift does not run code or rewrite HTML.
-              </p>
-            </li>
-          </ol>
-          <p class="note">Wordshift is an independent project and is not affiliated with FoxReplace.</p>
-        </div>
-      </section>
-
       <section class="block" id="shortcuts" aria-labelledby="shortcuts-title">
         <div class="wrap">
           <div class="section-head">
@@ -1087,7 +1016,7 @@
     <footer class="site-foot">
       <div class="wrap">
         <span
-          >Wordshift 0.1.0 · MIT License · Blue Harbor Works ·
+          >Wordshift 0.1.1 · MIT License · Blue Harbor Works ·
           <a href="https://github.com/BlueHarborWorks/wordshift">Source on GitHub</a></span
         >
         <span>Requires Firefox 142 or later, or a current Chromium-based browser such as Chrome or Edge.</span>

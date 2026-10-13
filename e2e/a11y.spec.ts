@@ -70,8 +70,8 @@ for (const scheme of SCHEMES) {
     expect(await violations(page), 'review editor').toEqual([]);
 
     await page.getByRole('button', { name: 'Import' }).click();
-    await page.getByLabel('File').setInputFiles(path.resolve('test/fixtures/foxreplace-2.6.json'));
-    await expect(page.getByText('from a FoxReplace file')).toBeVisible();
+    await page.getByLabel('File').setInputFiles(path.resolve('test/fixtures/wordshift-sample.json'));
+    await expect(page.getByText('from a Wordshift file')).toBeVisible();
     expect(await violations(page), 'import').toEqual([]);
 
     await page.getByRole('button', { name: 'Settings' }).click();
