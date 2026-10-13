@@ -251,6 +251,42 @@
       {/if}
     </ul>
 
+    <div class="nav-head utility-head">
+      <h2>Manage</h2>
+    </div>
+    <ul class="utility">
+      <li>
+        <button aria-current={view.kind === 'import' ? 'page' : undefined} onclick={() => (view = { kind: 'import' })}>
+          <svg class="nav-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 2.5v7m0 0L5.5 7M8 9.5 10.5 7M3 11v2h10v-2" />
+          </svg>
+          <span>Import</span>
+        </button>
+      </li>
+      <li>
+        <button onclick={exportRules} disabled={library.rules.length === 0}>
+          <svg class="nav-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 10V3m0 0L5.5 5.5M8 3l2.5 2.5M3 11v2h10v-2" />
+          </svg>
+          <span>Export</span>
+        </button>
+      </li>
+      <li>
+        <button
+          aria-current={view.kind === 'settings' ? 'page' : undefined}
+          onclick={() => (view = { kind: 'settings' })}
+        >
+          <svg class="nav-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M6.8 2.2h2.4l.4 1.4c.3.1.6.3.9.5l1.4-.4 1.2 2.1-1 1c0 .4.1.7 0 1.1l1 1-1.2 2.1-1.4-.4-.9.5-.4 1.4H6.8l-.4-1.4-.9-.5-1.4.4-1.2-2.1 1-1V6.8l-1-1 1.2-2.1 1.4.4.9-.5.4-1.4Z"
+            />
+            <circle cx="8" cy="7.9" r="1.8" />
+          </svg>
+          <span>Settings</span>
+        </button>
+      </li>
+    </ul>
+
     <div class="nav-head">
       <h2>Groups</h2>
       <button class="btn quiet icon" aria-label="New group" title="New group" onclick={addGroup}>
@@ -273,21 +309,6 @@
       {:else}
         <li class="empty">No groups</li>
       {/each}
-    </ul>
-
-    <ul class="bottom">
-      <li>
-        <button aria-current={view.kind === 'import' ? 'page' : undefined} onclick={() => (view = { kind: 'import' })}
-          >Import</button
-        >
-      </li>
-      <li><button onclick={exportRules} disabled={library.rules.length === 0}>Export</button></li>
-      <li>
-        <button
-          aria-current={view.kind === 'settings' ? 'page' : undefined}
-          onclick={() => (view = { kind: 'settings' })}>Settings</button
-        >
-      </li>
     </ul>
   </nav>
 
@@ -538,17 +559,41 @@
     font-size: var(--text-sm);
     font-weight: 500;
   }
+  .utility-head {
+    margin-top: 2px;
+  }
+  nav ul.utility {
+    display: grid;
+    gap: 2px;
+    margin-bottom: 18px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+  .utility li button {
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 32px;
+    padding: 6px 8px;
+    font-weight: 500;
+  }
+  .nav-icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.35;
+  }
   .empty {
     padding: 4px 8px;
     color: var(--text-muted);
     font-size: var(--text-sm);
   }
-  .bottom {
-    margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-  }
-
   main {
     min-width: 0;
     padding: 16px 24px;
@@ -781,10 +826,17 @@
     .empty {
       padding: 4px;
     }
-    .bottom {
-      margin-left: auto;
-      padding: 0;
-      border: 0;
+    .utility-head {
+      margin: 0;
+    }
+    nav ul.utility {
+      display: flex;
+      margin: 0;
+      padding: 3px;
+    }
+    .utility li button {
+      min-height: 30px;
+      padding: 4px 7px;
     }
     main {
       padding: 12px 16px;

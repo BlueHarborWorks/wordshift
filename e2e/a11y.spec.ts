@@ -54,6 +54,7 @@ for (const scheme of SCHEMES) {
     await page.setViewportSize({ width: 1180, height: 760 });
     await page.goto(`chrome-extension://${extensionId}/options.html`);
     await expect(page.locator('.rule-list li')).toHaveCount(3);
+    await expect(page.getByRole('navigation').getByRole('heading', { level: 2 })).toHaveText(['Manage', 'Groups']);
     expect(await violations(page), 'rule list').toEqual([]);
 
     await page.getByText('colour', { exact: true }).click();
