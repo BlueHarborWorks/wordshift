@@ -59,12 +59,14 @@ const demoLibrary = () => {
 };
 
 test('capture landing page screenshots', async ({ context, extensionId, sw }) => {
-  for (const scheme of ['light', 'dark'] as const) {
-    const page = await context.newPage();
-    await page.setViewportSize({ width: 860, height: 520 });
-    await page.goto(ARTICLE_URL);
-    const tabId = await sw.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]!.id!, ARTICLE_URL);
+  // Keep one target tab for both themes. Reopening the same URL can reuse a tab ID before the
+  // background's tab-removal cleanup completes, which makes a screenshot run depend on timing.
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 860, height: 520 });
+  await page.goto(ARTICLE_URL);
+  const tabId = await sw.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]!.id!, ARTICLE_URL);
 
+  for (const scheme of ['light', 'dark'] as const) {
     const popup = await context.newPage();
     await popup.emulateMedia({ colorScheme: scheme });
     await popup.setViewportSize({ width: 364, height: 330 });
@@ -79,8 +81,8 @@ test('capture landing page screenshots', async ({ context, extensionId, sw }) =>
     await popup.screenshot({ path: shot(`popup-${scheme}.png`) });
     if (scheme === 'light') await page.screenshot({ path: shot('page-highlights.png') });
     await popup.close();
-    await page.close();
   }
+  await page.close();
 
   await sw.evaluate((lib) => chrome.storage.local.set({ library: lib }), demoLibrary());
   const library = await context.newPage();

@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Wordshift</title>
+    <title>Wordshift — Private text replacement for Firefox</title>
     <meta
       name="description"
-      content="Wordshift is a browser extension that finds and replaces text on web pages, once or on every visit."
+      content="Wordshift is a privacy-first Firefox extension that replaces text on web pages without collecting or sending your data anywhere."
     />
     <link rel="icon" type="image/png" href="img/icon-32.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,6 +29,8 @@
         --on-mark: #1b1b1a;
         --focus: #2f6fde;
         --error: #b42318;
+        --private: #167647;
+        --private-wash: #edf8f1;
 
         --display: 'Bricolage Grotesque', 'Helvetica Neue', Arial, sans-serif;
         --body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -55,6 +57,8 @@
           --on-mark: #1b1b1a;
           --focus: #7aa7ff;
           --error: #f2826f;
+          --private: #75d6a5;
+          --private-wash: #183126;
           color-scheme: dark;
         }
       }
@@ -70,6 +74,8 @@
         --on-mark: #1b1b1a;
         --focus: #7aa7ff;
         --error: #f2826f;
+        --private: #75d6a5;
+        --private-wash: #183126;
         color-scheme: dark;
       }
 
@@ -260,6 +266,14 @@
         height: 7px;
         border-radius: 50%;
         background: var(--ink-soft);
+      }
+      .chip.private {
+        border-color: color-mix(in srgb, var(--private) 42%, var(--rule));
+        background: var(--private-wash);
+        color: var(--private);
+      }
+      .chip.private::before {
+        background: var(--private);
       }
 
       /* Demo */
@@ -473,6 +487,28 @@
         box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.4);
       }
 
+      /* Privacy promise */
+      .privacy-promise {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+        gap: 32px;
+        margin-bottom: 48px;
+        padding: 28px;
+        border: 1px solid color-mix(in srgb, var(--private) 35%, var(--rule));
+        border-radius: 10px;
+        background: var(--private-wash);
+      }
+      .privacy-promise h3 {
+        color: var(--private);
+        font: 600 var(--step-2) / 1.2 var(--display);
+      }
+      .privacy-promise p {
+        color: var(--ink-soft);
+      }
+      .privacy-promise strong {
+        color: var(--ink);
+      }
+
       /* Details list */
       .details {
         display: grid;
@@ -650,6 +686,7 @@
       @media (max-width: 860px) {
         .hero .wrap,
         .two-col,
+        .privacy-promise,
         .screen {
           grid-template-columns: minmax(0, 1fr);
         }
@@ -711,15 +748,15 @@
       <section class="hero" aria-labelledby="hero-title">
         <div class="wrap">
           <div>
-            <p class="eyebrow">Browser extension for Firefox and Chromium</p>
+            <p class="eyebrow">Privacy-first browser extension</p>
             <h1 id="hero-title">Change the <span class="shift">words</span> on any web page.</h1>
             <p class="lede">
-              Wordshift finds and replaces text on the sites you read, once or on every visit. It changes only the
-              visible text, leaves the page working as it was, and can undo every change.
+              Wordshift finds and replaces text on the sites you read, once or automatically on every visit. Everything
+              happens inside Firefox: no account, no analytics, and no data sent anywhere.
             </p>
             <div class="status">
-              <span class="chip">Version 0.1 in development</span>
-              <span>Not yet listed on Firefox Add-ons or the Chrome Web Store.</span>
+              <span class="chip private">No data collected</span>
+              <span>Version 0.1 release candidate for Firefox.</span>
             </div>
           </div>
 
@@ -755,8 +792,8 @@
               </div>
               <div class="demo-row">
                 <div class="segmented" role="radiogroup" aria-label="Match">
-                  <button type="button" role="radio" data-mode="text" aria-checked="false">Text</button>
-                  <button type="button" role="radio" data-mode="word" aria-checked="true">Word</button>
+                  <button type="button" role="radio" data-mode="text" aria-checked="false">Anywhere</button>
+                  <button type="button" role="radio" data-mode="word" aria-checked="true">Whole</button>
                   <button type="button" role="radio" data-mode="regex" aria-checked="false">Regex</button>
                 </div>
                 <button type="button" class="toggle" id="demo-case" aria-pressed="false" title="Match case">
@@ -776,8 +813,8 @@
       <section class="block" id="how" aria-labelledby="how-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="how-title">Two ways to use it</h2>
-            <p>Keep a change active in one tab, or save it as a rule that runs across future visits.</p>
+            <h2 id="how-title">Quick changes and automatic rules</h2>
+            <p>Use both at the same time: keep one-off changes active in a tab, and save recurring changes as rules.</p>
           </div>
           <div class="screens">
             <figure class="screen">
@@ -807,7 +844,7 @@
                 <p>
                   Open it from the toolbar. Matches are highlighted on the page as you type, with a running count. Step
                   through them, replace one or all, and undo if the result is not what you wanted. Quick changes stay
-                  active in that tab and reapply after reloads until you remove them.
+                  active in that tab, reapply after reloads, and appear in a list where each one can be removed.
                 </p>
                 <p>Highlights disappear when the popup closes. Nothing on the page changes until you choose Replace.</p>
               </figcaption>
@@ -832,8 +869,8 @@
                   later, such as new comments or an infinite-scroll feed.
                 </p>
                 <p>
-                  The Rule Library keeps rules in groups you can switch on and off, and each rule has a test box to try
-                  it on sample text before saving.
+                  The Rule Library keeps rules in groups you can switch on and off. Enable or disable every visible rule
+                  at once, delete a rule from the list, and keep Import, Export, and Settings close at hand.
                 </p>
               </figcaption>
             </figure>
@@ -851,8 +888,8 @@
             <div>
               <dt>Three ways to match</dt>
               <dd>
-                Plain text, whole words only, or a regular expression. Regex replacements can reuse captured text with
-                <code>$1</code>, <code>$&lt;name&gt;</code> and <code>$&amp;</code>.
+                Match anywhere inside text, match whole words only, or use a regular expression. Regex replacements can
+                reuse captured text with <code>$1</code>, <code>$&lt;name&gt;</code> and <code>$&amp;</code>.
               </dd>
             </div>
             <div>
@@ -872,8 +909,8 @@
             <div>
               <dt>Undo and pause</dt>
               <dd>
-                Quick Replace actions appear in tab-local history, survive reloads, and can be removed one at a time or
-                restored together. Pausing affects automatic rules only; Quick Replace stays available.
+                Quick changes appear in tab-local history, survive reloads, and can be removed one at a time or restored
+                together. “Pause automatic on this site” pauses saved automatic rules only; Quick Replace stays active.
               </dd>
             </div>
             <div>
@@ -896,12 +933,21 @@
       <section class="block" id="privacy" aria-labelledby="privacy-title">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="privacy-title">What it changes, and what it leaves alone</h2>
+            <h2 id="privacy-title">Private by design</h2>
             <p>
-              Wordshift edits text and nothing else, so pages keep working: buttons, forms, video players and web apps
-              behave as they did before.
+              Wordshift does its work locally in Firefox. It has no account system, analytics, telemetry, advertising,
+              cloud service, or remote server.
             </p>
           </div>
+
+          <div class="privacy-promise">
+            <h3>No data leaves your browser.</h3>
+            <p>
+              <strong>Wordshift collects and sends nothing.</strong> Page text, browsing history, rules, settings, and
+              usage stay on your device. Site access is used only to find and replace visible text on pages you choose.
+            </p>
+          </div>
+
           <div class="two-col">
             <div>
               <h3 class="col-title">Changes</h3>
@@ -923,10 +969,11 @@
             </div>
           </div>
 
-          <h3 class="col-title data-title">Your data</h3>
+          <h3 class="col-title data-title">Where your settings live</h3>
           <ul class="plain-list">
-            <li>Rules and settings are saved in your browser's extension storage and nowhere else</li>
-            <li>Wordshift has no server, makes no network requests, and never sends page content or rules anywhere</li>
+            <li>Saved rules and settings live only in Firefox's local extension storage</li>
+            <li>Quick changes live in Firefox session storage for that tab and disappear when the tab closes</li>
+            <li>Wordshift makes no network requests and never sends page content, rules, or activity anywhere</li>
             <li>Export creates a file on your computer; import reads one. Nothing is uploaded</li>
             <li>
               Site access is used only to read and change text on pages you allowed; remove it at any time in Settings
