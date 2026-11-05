@@ -33,6 +33,14 @@ export default defineContentScript({
   },
 });
 
+/**
+ * The address rules are matched against. An about:srcdoc or about:blank frame has no address of its
+ * own, so it uses the address of the page that created it.
+ */
+function scopeUrl(): string {
+  return location.protocol === 'about:' ? document.baseURI : location.href;
+}
+
 const MATCH_HIGHLIGHT = 'wordshift-match';
 const CURRENT_HIGHLIGHT = 'wordshift-current';
 
@@ -60,9 +68,8 @@ class PageController {
   private quickActions: QuickAction[] = [];
 
   async start(): Promise<void> {
+    // The popup addresses each frame by id, so every frame answers only the requests meant for it.
     browser.runtime.onMessage.addListener((message: PageRequest, _sender, sendResponse) => {
-      // Quick Replace works on the top frame only.
-      if (window !== window.top) return false;
       void this.handle(message).then(sendResponse);
       return true;
     });
@@ -110,8 +117,9 @@ class PageController {
   }
 
   private autoRules() {
-    if (!this.library || !this.settings?.autoApply || isPaused(this.settings, location.href)) return [];
-    return rulesFor(this.library, location.href);
+    const url = scopeUrl();
+    if (!this.library || !this.settings?.autoApply || isPaused(this.settings, url)) return [];
+    return rulesFor(this.library, url);
   }
 
   private async applyAuto(nodes: Text[]): Promise<void> {
@@ -136,6 +144,13 @@ class PageController {
         const count = this.quick.matches.length;
         if (count > 0) this.quick.current = (this.quick.current + message.delta + count) % count;
         this.showQuick(true);
+        return { quick: this.quickState(), status: this.status() };
+      }
+
+      case 'quick:focus': {
+        const inRange = message.index >= 0 && message.index < this.quick.matches.length;
+        this.quick.current = inRange ? message.index : -1;
+        this.showQuick(inRange);
         return { quick: this.quickState(), status: this.status() };
       }
 
@@ -240,7 +255,8 @@ class PageController {
     if (this.quick.matches.length > 0) {
       this.quick.current = Math.min(preferredIndex, this.quick.matches.length - 1);
     }
-    this.showQuick(true);
+    // No scrolling here: the popup chooses the current match across all frames and focuses it.
+    this.showQuick(false);
   }
 
   private showQuick(scroll: boolean): void {
@@ -263,11 +279,16 @@ class PageController {
     if (!currentRange) return;
     CSS.highlights.set(CURRENT_HIGHLIGHT, new Highlight(currentRange));
 
-    if (scroll) {
+    if (scroll && window === window.top) {
       const rect = currentRange.getBoundingClientRect();
       if (rect.top < 0 || rect.bottom > window.innerHeight) {
         window.scrollBy({ top: rect.top - window.innerHeight / 2, behavior: 'instant' });
       }
+    } else if (scroll) {
+      // Inside an embedded frame, scrollIntoView also scrolls the pages around the frame.
+      const node = currentRange.startContainer;
+      const element = node instanceof Element ? node : node.parentElement;
+      element?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
     }
   }
 
@@ -288,7 +309,7 @@ class PageController {
     matchIndex?: number,
   ): Promise<void> {
     if (replacements === 0) return;
-    this.quickActions.push({ id, ...spec, replacements, mode, matchIndex });
+    this.quickActions.push({ id, ...spec, replacements, mode, matchIndex, at: Date.now() });
     this.watcher.observe(document);
     await this.persistQuickSession();
     await this.updateBadge();
@@ -298,6 +319,7 @@ class PageController {
     const response = (await browser.runtime.sendMessage({
       type: 'quickSession:get',
       url: location.href,
+      top: window === window.top,
     })) as QuickSessionResponse | undefined;
     this.quickActions = (response?.actions ?? []).map((action) => ({ ...action, replacements: 0 }));
     for (const action of this.quickActions) {
@@ -331,6 +353,7 @@ class PageController {
     await browser.runtime.sendMessage({
       type: 'quickSession:set',
       url: location.href,
+      top: window === window.top,
       actions: this.quickActions,
     });
   }
@@ -347,9 +370,10 @@ class PageController {
     for (const n of this.replacer.autoCounts.values()) autoReplacements += n;
     return {
       autoRules: this.replacer.autoCounts.size,
+      autoRuleIds: [...this.replacer.autoCounts.keys()],
       autoReplacements,
       canUndo: this.replacer.canUndo,
-      paused: this.settings !== null && isPaused(this.settings, location.href),
+      paused: this.settings !== null && isPaused(this.settings, scopeUrl()),
       quickActions: [...this.quickActions],
     };
   }

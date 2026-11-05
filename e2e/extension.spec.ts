@@ -217,3 +217,91 @@ test('Rule Library creates rules and imports Wordshift backups', async ({ contex
   await page.getByRole('button', { name: 'Settings' }).click();
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'library-settings.png') });
 });
+
+// A Google Sites page: the published content sits in a sandboxed iframe from another origin, here
+// with a nested srcdoc frame as well.
+const SITES_URL = 'https://wordshift.test/sites';
+const EMBED_URL = 'https://embed.wordshift.test/embed';
+const SITES_HTML = `<!doctype html><html><head><title>Site</title></head><body>
+  <p id="top">Top text with one CLI mention.</p>
+  <div style="height: 1600px"></div>
+  <iframe sandbox="allow-scripts allow-popups" src="${EMBED_URL}" style="width: 800px; height: 600px"></iframe>
+</body></html>`;
+const EMBED_HTML = `<!doctype html><html><body>
+  <h2 id="h">Workstation and client</h2>
+  <p id="a">Compare direct API, CLI, SDK.</p>
+  <p id="b">Manual browser / CLI</p>
+  <iframe sandbox="allow-scripts" srcdoc="&lt;p id=n&gt;Nested CLI note&lt;/p&gt;"></iframe>
+</body></html>`;
+
+test('Quick Replace and automatic rules reach embedded frames', async ({ context, extensionId, sw }) => {
+  await context.route('https://embed.wordshift.test/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: EMBED_HTML }),
+  );
+  await context.route(SITES_URL, (route) => route.fulfill({ contentType: 'text/html', body: SITES_HTML }));
+  const page = await context.newPage();
+  await page.goto(SITES_URL);
+  const embed = page.frameLocator('iframe');
+  const nested = embed.frameLocator('iframe');
+  await expect(embed.locator('#b')).toHaveText('Manual browser / CLI');
+  await expect(nested.locator('#n')).toHaveText('Nested CLI note');
+  const tabId = await sw.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]!.id!, SITES_URL);
+
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html?tab=${tabId}`);
+  await popup.getByPlaceholder('Find').fill('cli');
+  // One match in the page itself, three in the embedded frame, one in the nested frame.
+  await expect(popup.locator('#find-status')).toHaveText('1 of 5');
+  await popup.getByPlaceholder('Find').press('Enter');
+  await expect(popup.locator('#find-status')).toHaveText('2 of 5');
+  // Stepping into the frame scrolls the page down to it.
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(800);
+  await popup.getByPlaceholder('Find').press('Shift+Enter');
+  await expect(popup.locator('#find-status')).toHaveText('1 of 5');
+  await popup.getByPlaceholder('Find').press('Shift+Enter');
+  await expect(popup.locator('#find-status')).toHaveText('5 of 5');
+
+  await popup.getByPlaceholder('Replace with').fill('route');
+  await popup.getByRole('button', { name: 'Replace all' }).click();
+  await expect(page.locator('#top')).toHaveText('Top text with one route mention.');
+  await expect(embed.locator('#h')).toHaveText('Workstation and routeent');
+  await expect(embed.locator('#b')).toHaveText('Manual browser / route');
+  await expect(nested.locator('#n')).toHaveText('Nested route note');
+  await expect(popup.locator('#find-status')).toHaveText('No matches');
+  await expect(popup.getByText('3 actions')).toBeVisible();
+
+  // Quick changes in both the page and the frame come back after a reload.
+  await page.reload();
+  await expect(page.locator('#top')).toHaveText('Top text with one route mention.');
+  await expect(embed.locator('#b')).toHaveText('Manual browser / route');
+  await expect(nested.locator('#n')).toHaveText('Nested route note');
+  await expect.poll(() => sw.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), tabId)).toBe('•');
+
+  // Each action is removed in the frame it belongs to.
+  await popup.reload();
+  await expect(popup.getByText('3 actions')).toBeVisible();
+  await popup.getByRole('button', { name: 'Remove Quick change cli to route' }).first().click();
+  await expect(page.locator('#top')).toHaveText('Top text with one CLI mention.');
+  await expect(embed.locator('#b')).toHaveText('Manual browser / route');
+  await popup.getByRole('button', { name: 'Undo last' }).click();
+  await expect(popup.getByText('1 action', { exact: true })).toBeVisible();
+  await popup.getByRole('button', { name: 'Restore all Quick changes' }).click();
+  await expect(embed.locator('#b')).toHaveText('Manual browser / CLI');
+  await expect(nested.locator('#n')).toHaveText('Nested CLI note');
+  await expect(popup.getByText('Quick changes active in this tab')).toHaveCount(0);
+  await expect.poll(() => sw.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), tabId)).toBe('');
+
+  // Automatic rules run inside the sandboxed frame as well, and the popup counts the rule once.
+  await sw.evaluate(
+    (lib) => chrome.storage.local.set({ library: lib }),
+    library([rule({ find: 'cli', replace: 'shell', match: 'word' })]),
+  );
+  await waitForRegistration(sw, 1);
+  await page.reload();
+  await expect(page.locator('#top')).toHaveText('Top text with one shell mention.');
+  await expect(embed.locator('#a')).toHaveText('Compare direct API, shell, SDK.');
+  await expect(embed.locator('#h')).toHaveText('Workstation and client');
+  await expect(nested.locator('#n')).toHaveText('Nested shell note');
+  await popup.reload();
+  await expect(popup.getByText('1 automatic rule made 4 changes here.')).toBeVisible();
+});

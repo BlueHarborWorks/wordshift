@@ -6,12 +6,13 @@
   import { createRule } from '../../shared/library-ops';
   import { hostOf } from '../../shared/rules';
   import { loadLibrary, loadSettings, saveLibrary, saveSettings } from '../../shared/storage';
-  import { preparePage, sendToPage } from '../../shared/tabs';
+  import { PageFrames } from '../../shared/tabs';
   import MatchOptions from '../../ui/MatchOptions.svelte';
 
   const DRAFT_KEY = 'quickDraft';
 
   let tabId: number | undefined;
+  let frames: PageFrames | undefined;
   let tabUrl = $state('');
   let host = $state('');
   let ready = $state(false);
@@ -36,11 +37,11 @@
   let lastRequest = 0;
 
   async function request(message: PageRequest, retries = 0) {
-    if (tabId === undefined || pageError) return;
+    if (frames === undefined || pageError) return;
     const seq = ++lastRequest;
     for (let attempt = 0; ; attempt++) {
       try {
-        const response = await sendToPage(tabId, message);
+        const response = await frames.request(message);
         // Fast typing can get replies back out of order; only the newest one may update the view.
         if (seq !== lastRequest) return response;
         status = response.status;
@@ -79,9 +80,11 @@
       pageError = 'No page is open.';
     } else {
       try {
-        await preparePage(tabId);
+        // Searches the page and its embedded frames, such as the content of a Google Sites page.
+        frames = new PageFrames(tabId);
+        await frames.prepare();
         // Highlights belong to this popup; the page clears them when it closes.
-        browser.tabs.connect(tabId, { name: 'quick', frameId: 0 });
+        frames.connect();
         // Firefox may resolve executeScript just before a large page finishes registering its
         // message listener. Retry this read-only handshake briefly; never retry mutations.
         await request({ type: 'page:status' }, 8);
@@ -128,7 +131,7 @@
   }
 
   async function removeQuickChange(action: QuickAction) {
-    const response = await request({ type: 'page:removeQuickChange', actionId: action.id });
+    const response = await request({ type: 'page:removeQuickChange', actionId: action.id, frameId: action.frameId });
     if (response) notice = 'Restored that Quick Replace change.';
   }
 

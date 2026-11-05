@@ -9,7 +9,7 @@ https://chromewebstore.google.com/detail/wordshift/pfjgkfknmgfknbjadjboehbbnhlmc
 ## Before you start
 
 - The privacy policy URL below must resolve, so `PRIVACY.md` has to be on `main` on GitHub.
-- Build the package: `npm ci && npm run zip` creates `.output/wordshift-0.1.2-chrome.zip`.
+- Build the package: `npm ci && npm run zip` creates `.output/wordshift-0.1.3-chrome.zip`.
 - Do not create API keys, change account settings other than those listed here, or put the account
   owner's email address in any public field.
 
@@ -25,8 +25,8 @@ Dashboard > **Account** (Settings):
 
 ## 2. Create the item
 
-**+ New item** > upload `.output/wordshift-0.1.2-chrome.zip`. Expected: no errors. The package is
-Manifest V3, version 0.1.2, `minimum_chrome_version` 111, permissions `storage`, `activeTab`,
+**+ New item** > upload `.output/wordshift-0.1.3-chrome.zip`. Expected: no errors. The package is
+Manifest V3, version 0.1.3, `minimum_chrome_version` 111, permissions `storage`, `activeTab`,
 `scripting`, optional host permission `<all_urls>`, no remote code.
 
 ## 3. Store listing tab

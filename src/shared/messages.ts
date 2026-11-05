@@ -1,14 +1,20 @@
 import type { PatternSpec } from '../core/compile';
 
-/** Messages from the popup or background to the content script in a tab's top frame. */
+/**
+ * Messages from the popup to the content script in one frame of a tab. The popup sends each one to
+ * a single frame by frame id, and combines the replies when the page has several frames.
+ */
 export type PageRequest =
   | { type: 'quick:find'; spec: PatternSpec }
   | { type: 'quick:step'; delta: 1 | -1 }
+  /** Makes match `index` of this frame the current one and scrolls to it; -1 clears it. */
+  | { type: 'quick:focus'; index: number }
   | { type: 'quick:replaceOne'; spec: PatternSpec }
   | { type: 'quick:replaceAll'; spec: PatternSpec }
   | { type: 'quick:clear' }
   | { type: 'page:clearQuickChanges' }
-  | { type: 'page:removeQuickChange'; actionId: number }
+  /** `frameId` routes the request to the frame that owns the action; the frame ignores it. */
+  | { type: 'page:removeQuickChange'; actionId: number; frameId?: number }
   | { type: 'page:undo' }
   | { type: 'page:status' };
 
@@ -23,6 +29,8 @@ export interface QuickState {
 export interface PageStatus {
   /** Automatic rules that changed something on this page. */
   autoRules: number;
+  /** Their ids, so the popup can count rules once across frames. */
+  autoRuleIds?: string[];
   autoReplacements: number;
   canUndo: boolean;
   paused: boolean;
@@ -41,12 +49,19 @@ export interface QuickAction {
   mode: 'one' | 'all';
   /** Match position used to restore a single-replacement action after a reload. */
   matchIndex?: number;
+  /** When the action was taken, so Undo picks the newest action across frames. */
+  at?: number;
+  /** The frame the action belongs to, set by the popup when it combines frames. */
+  frameId?: number;
 }
 
-/** Messages between a tab's content script and the background's tab-scoped Quick session store. */
+/**
+ * Messages between a tab's content scripts and the background's tab-scoped Quick session store.
+ * `url` is the sending frame's address; `top` is false for content inside an embedded frame.
+ */
 export type QuickSessionRequest =
-  | { type: 'quickSession:get'; url: string }
-  | { type: 'quickSession:set'; url: string; actions: QuickAction[] }
+  | { type: 'quickSession:get'; url: string; top?: boolean }
+  | { type: 'quickSession:set'; url: string; top?: boolean; actions: QuickAction[] }
   | { type: 'tabState:set'; active: boolean };
 
 export interface QuickSessionResponse {
