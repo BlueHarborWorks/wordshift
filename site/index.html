@@ -287,8 +287,9 @@
       .cta {
         display: inline-flex;
         align-items: center;
+        gap: 8px;
         height: 40px;
-        padding: 0 16px;
+        padding: 0 16px 0 12px;
         border: 1px solid var(--ink);
         border-radius: var(--radius);
         background: var(--ink);
@@ -298,6 +299,11 @@
       }
       .cta:hover {
         opacity: 0.9;
+      }
+      .cta img {
+        flex: none;
+        width: 20px;
+        height: 20px;
       }
 
       /* Demo */
@@ -668,6 +674,10 @@
         color: var(--ink-soft);
         font-size: var(--step--1);
       }
+      .site-foot .tm {
+        flex-basis: 100%;
+        font-size: 0.75rem;
+      }
       .site-foot .wrap {
         display: flex;
         flex-wrap: wrap;
@@ -744,9 +754,9 @@
               happens inside your browser: no account, no analytics, and no data sent anywhere.
             </p>
             <div class="get">
-              <a class="cta" href="https://addons.mozilla.org/firefox/addon/wordshift/">Add to Firefox</a>
+              <a class="cta" href="https://addons.mozilla.org/firefox/addon/wordshift/"><img src="img/firefox.svg" alt="" width="20" height="20" />Add to Firefox</a>
               <a class="cta" href="https://chromewebstore.google.com/detail/wordshift/pfjgkfknmgfknbjadjboehbbnhlmclde"
-                >Add to Chrome</a
+                ><img src="img/chrome.svg" alt="" width="20" height="20" />Add to Chrome</a
               >
             </div>
             <div class="status">
@@ -1067,6 +1077,7 @@
           · <a href="https://github.com/BlueHarborWorks/wordshift">Source on GitHub</a></span
         >
         <span>Requires Firefox 142 or later, or Chrome 111 or later.</span>
+        <span class="tm">Firefox is a trademark of the Mozilla Foundation. Chrome is a trademark of Google LLC.</span>
       </div>
     </footer>
 
