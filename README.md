@@ -10,6 +10,8 @@ Find and replace text in one tab or automatically across sites, with rules you c
 
 Built for Firefox (142+) and Chrome (111+) or other Chromium browsers, Manifest V3. See [PRIVACY.md](PRIVACY.md).
 
+[Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/wordshift/) · [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/wordshift/pfjgkfknmgfknbjadjboehbbnhlmclde) · [Landing page](https://blueharborworks.github.io/wordshift/)
+
 Landing page: https://blueharborworks.github.io/wordshift/ (source in `site/`, deployed by the Landing page workflow).
 
 ## Development

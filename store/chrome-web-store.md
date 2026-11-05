@@ -3,6 +3,9 @@
 Everything needed to submit Wordshift in the Chrome Web Store Developer Dashboard
 (https://chrome.google.com/webstore/devconsole). Text in code blocks is meant to be pasted as-is.
 
+Published listing (item ID `pfjgkfknmgfknbjadjboehbbnhlmclde`, first published 2026-11-04 as 0.1.2):
+https://chromewebstore.google.com/detail/wordshift/pfjgkfknmgfknbjadjboehbbnhlmclde
+
 ## Before you start
 
 - The privacy policy URL below must resolve, so `PRIVACY.md` has to be on `main` on GitHub.

@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Wordshift — Private text replacement for Firefox</title>
+    <title>Wordshift: private text replacement for Firefox and Chrome</title>
     <meta
       name="description"
-      content="Wordshift is a privacy-first Firefox extension that replaces text on web pages without collecting or sending your data anywhere."
+      content="Wordshift is a privacy-first extension for Firefox and Chrome that replaces text on web pages without collecting or sending your data anywhere."
     />
     <link rel="icon" type="image/png" href="img/icon-32.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -274,6 +274,30 @@
       }
       .chip.private::before {
         background: var(--private);
+      }
+      .get {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 28px;
+      }
+      .get + .status {
+        margin-top: 18px;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        height: 40px;
+        padding: 0 16px;
+        border: 1px solid var(--ink);
+        border-radius: var(--radius);
+        background: var(--ink);
+        color: var(--paper);
+        font: 500 var(--step--1) var(--body);
+        text-decoration: none;
+      }
+      .cta:hover {
+        opacity: 0.9;
       }
 
       /* Demo */
@@ -606,6 +630,12 @@
       tbody th code {
         font-weight: 400;
       }
+      .store-note {
+        max-width: 48em;
+        margin-top: 24px;
+        color: var(--ink-soft);
+        font-size: var(--step--1);
+      }
 
       /* Shortcuts */
       .shortcuts {
@@ -711,11 +741,17 @@
             <h1 id="hero-title">Change the <span class="shift">words</span> on any web page.</h1>
             <p class="lede">
               Wordshift finds and replaces text on the sites you read, once or automatically on every visit. Everything
-              happens inside Firefox: no account, no analytics, and no data sent anywhere.
+              happens inside your browser: no account, no analytics, and no data sent anywhere.
             </p>
+            <div class="get">
+              <a class="cta" href="https://addons.mozilla.org/firefox/addon/wordshift/">Add to Firefox</a>
+              <a class="cta" href="https://chromewebstore.google.com/detail/wordshift/pfjgkfknmgfknbjadjboehbbnhlmclde"
+                >Add to Chrome</a
+              >
+            </div>
             <div class="status">
               <span class="chip private">No data collected</span>
-              <span>Version 0.1 release candidate for Firefox.</span>
+              <span>Free and open source, from Firefox Add-ons and the Chrome Web Store.</span>
             </div>
           </div>
 
@@ -894,8 +930,8 @@
           <div class="section-head">
             <h2 id="privacy-title">Private by design</h2>
             <p>
-              Wordshift does its work locally in Firefox. It has no account system, analytics, telemetry, advertising,
-              cloud service, or remote server.
+              Wordshift does its work locally in your browser. It has no account system, analytics, telemetry,
+              advertising, cloud service, or remote server.
             </p>
           </div>
 
@@ -930,8 +966,8 @@
 
           <h3 class="col-title data-title">Where your settings live</h3>
           <ul class="plain-list">
-            <li>Saved rules and settings live only in Firefox's local extension storage</li>
-            <li>Quick changes live in Firefox session storage for that tab and disappear when the tab closes</li>
+            <li>Saved rules and settings live only in the browser's local extension storage</li>
+            <li>Quick changes live in the browser's session storage for that tab and disappear when the tab closes</li>
             <li>Wordshift makes no network requests and never sends page content, rules, or activity anywhere</li>
             <li>Export creates a file on your computer; import reads one. Nothing is uploaded</li>
             <li>
@@ -978,6 +1014,13 @@
               </tbody>
             </table>
           </div>
+          <p class="store-note">
+            Chrome Web Store listings disclose any data an extension handles, including data that never leaves the
+            device, so the Wordshift listing names website content (the page text it replaces) and web history (the
+            address of a tab with active quick changes). Neither is stored beyond what is described above, and nothing
+            is sent anywhere. The full text is in
+            <a href="https://github.com/BlueHarborWorks/wordshift/blob/main/PRIVACY.md">PRIVACY.md</a>.
+          </p>
         </div>
       </section>
 
@@ -1016,10 +1059,14 @@
     <footer class="site-foot">
       <div class="wrap">
         <span
-          >Wordshift 0.1.1 · MIT License · Blue Harbor Works ·
-          <a href="https://github.com/BlueHarborWorks/wordshift">Source on GitHub</a></span
+          >Wordshift 0.1.2 · MIT License · Blue Harbor Works ·
+          <a href="https://addons.mozilla.org/firefox/addon/wordshift/">Firefox Add-ons</a> ·
+          <a href="https://chromewebstore.google.com/detail/wordshift/pfjgkfknmgfknbjadjboehbbnhlmclde"
+            >Chrome Web Store</a
+          >
+          · <a href="https://github.com/BlueHarborWorks/wordshift">Source on GitHub</a></span
         >
-        <span>Requires Firefox 142 or later, or a current Chromium-based browser such as Chrome or Edge.</span>
+        <span>Requires Firefox 142 or later, or Chrome 111 or later.</span>
       </div>
     </footer>
 
