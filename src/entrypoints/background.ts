@@ -14,11 +14,13 @@ export default defineBackground(() => {
   onDataChanged(() => void syncAutoScript());
   browser.permissions.onAdded.addListener(() => void syncAutoScript());
   browser.permissions.onRemoved.addListener(() => void syncAutoScript());
-  browser.runtime.onMessage.addListener((message: QuickSessionRequest, sender) => {
-    if (!message.type.startsWith('quickSession:') && message.type !== 'tabState:set') return;
+  // Reply through sendResponse: Chrome before 148 ignores a promise returned by the listener.
+  browser.runtime.onMessage.addListener((message: QuickSessionRequest, sender, sendResponse) => {
+    if (!message.type.startsWith('quickSession:') && message.type !== 'tabState:set') return false;
     const tabId = sender.tab?.id;
-    if (tabId === undefined) return;
-    return handleTabMessage(tabId, message);
+    if (tabId === undefined) return false;
+    void handleTabMessage(tabId, message).then(sendResponse, () => sendResponse(undefined));
+    return true;
   });
   browser.tabs.onRemoved.addListener((tabId) => void removeQuickSession(tabId));
   browser.tabs.onUpdated.addListener((tabId, changeInfo) => {

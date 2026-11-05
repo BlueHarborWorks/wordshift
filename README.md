@@ -6,9 +6,9 @@ Find and replace text in one tab or automatically across sites, with rules you c
 - **Rules** that run automatically on the sites you choose, including content that loads later.
 - **Safe by design**: Wordshift only changes visible text. It does not run code from rules, rewrite HTML or scripts, or touch what you type in forms. Page structure, listeners, and app state are left alone, and every change can be undone.
 - **Minimal permissions**: no site access at install. Quick Replace uses the current tab after you open it; automatic rules ask for access to just the sites they use.
-- **Local backups**: export your rules as JSON and import them on another Firefox profile or device.
+- **Local backups**: export your rules as JSON and import them in another browser profile or on another device.
 
-Built for Firefox (142+) and Chromium browsers, Manifest V3.
+Built for Firefox (142+) and Chrome (111+) or other Chromium browsers, Manifest V3. See [PRIVACY.md](PRIVACY.md).
 
 Landing page: https://blueharborworks.github.io/wordshift/ (source in `site/`, deployed by the Landing page workflow).
 
@@ -28,7 +28,18 @@ npm run dev:firefox    # Firefox with live reload
 | `npm run lint`                    | ESLint                                                                           |
 | `npm run lint:ext`                | Builds for Firefox and runs `web-ext lint`                                       |
 | `npm run build` / `build:firefox` | Production builds in `.output/`                                                  |
-| `npm run zip` / `zip:firefox`     | Store packages                                                                   |
+| `npm run zip` / `zip:firefox`     | Store packages (Chrome Web Store / Firefox Add-ons)                              |
+
+## Chrome Web Store package
+
+```sh
+npm ci
+npm run zip            # .output/wordshift-0.1.2-chrome.zip
+```
+
+Listing text, permission justifications, and the privacy answers are in
+[`store/chrome-web-store.md`](store/chrome-web-store.md). Store images are in `store/chrome/` and are
+regenerated from the real extension with `WORDSHIFT_STORE=store/chrome npm run e2e -- store`.
 
 ## AMO reviewer build instructions
 
@@ -50,8 +61,8 @@ npm run zip:firefox
 
 The command creates:
 
-- `.output/wordshift-0.1.1-firefox.zip` — the Firefox extension package
-- `.output/wordshift-0.1.1-sources.zip` — the reviewer source archive
+- `.output/wordshift-0.1.2-firefox.zip` — the Firefox extension package
+- `.output/wordshift-0.1.2-sources.zip` — the reviewer source archive
 
 The unpacked Firefox build is also available at `.output/firefox-mv3/`. No environment variables,
 credentials, network services, or generated files outside `.output/` are required. `package-lock.json`
@@ -66,7 +77,8 @@ src/shared/      Storage, messaging, rule selection shared by extension contexts
 src/ui/          Theme tokens and shared Svelte components.
 src/entrypoints/ background, content script, popup (Quick Replace), options (Rule Library).
 test/            Vitest unit tests and fixtures.
-e2e/             Playwright tests.
+e2e/             Playwright tests, plus landing page and Chrome Web Store image capture.
+store/           Chrome Web Store listing text and images.
 ```
 
 ## License

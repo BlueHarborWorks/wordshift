@@ -85,3 +85,52 @@ export function rule(fields: Record<string, unknown>) {
 export function library(rules: unknown[]) {
   return { format: 'wordshift', schemaVersion: 2, groups: [], rules };
 }
+
+/** A realistic library for product screenshots: two groups, site-scoped and regex rules. */
+export const demoLibrary = () => {
+  const spelling = crypto.randomUUID();
+  const work = crypto.randomUUID();
+  const rule = (groupId: string | null, fields: Record<string, unknown>) => ({
+    id: crypto.randomUUID(),
+    groupId,
+    enabled: true,
+    replace: '',
+    match: 'text',
+    caseSensitive: false,
+    sites: { include: [], exclude: [] },
+    review: null,
+    ...fields,
+  });
+  return {
+    format: 'wordshift',
+    schemaVersion: 2,
+    groups: [
+      { id: spelling, name: 'British to American', enabled: true },
+      { id: work, name: 'Work', enabled: true },
+    ],
+    rules: [
+      rule(spelling, { find: 'colour', replace: 'color', match: 'word' }),
+      rule(spelling, { find: 'harbour', replace: 'harbor', match: 'word' }),
+      rule(spelling, { find: 'organise', replace: 'organize', match: 'word' }),
+      rule(spelling, {
+        find: 'centre',
+        replace: 'center',
+        match: 'word',
+        sites: { include: [], exclude: ['bbc.co.uk'] },
+      }),
+      rule(work, {
+        find: 'PRJ-(\\d+)',
+        replace: 'Ticket $1',
+        match: 'regex',
+        caseSensitive: true,
+        sites: { include: ['tracker.example.com'], exclude: [] },
+      }),
+      rule(work, {
+        find: 'Q4 planning',
+        replace: 'Q4 roadmap',
+        sites: { include: ['docs.example.com'], exclude: [] },
+      }),
+      rule(null, { find: 'e-mail', replace: 'email', match: 'word' }),
+    ],
+  };
+};

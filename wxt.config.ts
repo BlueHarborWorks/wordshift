@@ -23,6 +23,8 @@ export default defineConfig({
         description: 'Open Quick Replace',
       },
     },
+    // Vite 8 compiles for Chrome 111 (its baseline target), and the UI uses color-mix() (111).
+    ...(browser === 'chrome' && { minimum_chrome_version: '111' }),
     ...(browser === 'firefox' && {
       browser_specific_settings: {
         gecko: {
