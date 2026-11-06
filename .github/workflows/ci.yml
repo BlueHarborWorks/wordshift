@@ -21,5 +21,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run lint:ext
+      # The Azure mirror can stall on the fonts installed by Playwright.
+      - name: Use Ubuntu archive mirror for browser dependencies
+        run: echo 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
