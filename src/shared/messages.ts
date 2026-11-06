@@ -68,6 +68,15 @@ export interface QuickSessionResponse {
   actions: QuickAction[];
 }
 
+/** The background can read the tab address even when this frame is cross-origin or sandboxed. */
+export interface PageContextRequest {
+  type: 'pageContext:get';
+}
+
+export interface PageContextResponse {
+  topUrl?: string;
+}
+
 export interface PageResponse {
   quick?: QuickState;
   replaced?: number;

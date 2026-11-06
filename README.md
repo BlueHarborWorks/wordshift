@@ -36,7 +36,7 @@ npm run dev:firefox    # Firefox with live reload
 
 ```sh
 npm ci
-npm run zip            # .output/wordshift-0.1.3-chrome.zip
+npm run zip            # .output/wordshift-0.1.4-chrome.zip
 ```
 
 Listing text, permission justifications, and the privacy answers are in
@@ -63,8 +63,8 @@ npm run zip:firefox
 
 The command creates:
 
-- `.output/wordshift-0.1.3-firefox.zip` — the Firefox extension package
-- `.output/wordshift-0.1.3-sources.zip` — the reviewer source archive
+- `.output/wordshift-0.1.4-firefox.zip` — the Firefox extension package
+- `.output/wordshift-0.1.4-sources.zip` — the reviewer source archive
 
 The unpacked Firefox build is also available at `.output/firefox-mv3/`. No environment variables,
 credentials, network services, or generated files outside `.output/` are required. `package-lock.json`

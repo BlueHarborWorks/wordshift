@@ -5,6 +5,7 @@ import { collectTextNodes } from '../dom/textnodes';
 import { ContentWatcher } from '../dom/watcher';
 import type {
   PageRequest,
+  PageContextResponse,
   PageResponse,
   PageStatus,
   QuickAction,
@@ -52,6 +53,8 @@ class PageController {
   );
   private library: Library | null = null;
   private settings: Settings | null = null;
+  /** The site shown in the address bar; its pause applies to every embedded frame too. */
+  private topUrl = '';
   private autoActive = false;
   /** Identifies the automatic rule set last applied, so unrelated storage changes do not redo the page. */
   private autoKey = '';
@@ -77,6 +80,16 @@ class PageController {
     browser.runtime.onConnect.addListener((port) => {
       if (port.name === 'quick') port.onDisconnect.addListener(() => void this.handle({ type: 'quick:clear' }));
     });
+    if (window === window.top) this.topUrl = location.href;
+    else {
+      try {
+        const context = (await browser.runtime.sendMessage({ type: 'pageContext:get' })) as
+          PageContextResponse | undefined;
+        this.topUrl = context?.topUrl ?? '';
+      } catch {
+        // If the background is unavailable, retain this frame's own pause behavior.
+      }
+    }
     onDataChanged(() => void this.reload());
     await this.reload();
     await this.restoreQuickSession();
@@ -118,8 +131,12 @@ class PageController {
 
   private autoRules() {
     const url = scopeUrl();
-    if (!this.library || !this.settings?.autoApply || isPaused(this.settings, url)) return [];
+    if (!this.library || !this.settings?.autoApply || this.paused()) return [];
     return rulesFor(this.library, url);
+  }
+
+  private paused(): boolean {
+    return this.settings !== null && (isPaused(this.settings, this.topUrl) || isPaused(this.settings, scopeUrl()));
   }
 
   private async applyAuto(nodes: Text[]): Promise<void> {
@@ -373,7 +390,7 @@ class PageController {
       autoRuleIds: [...this.replacer.autoCounts.keys()],
       autoReplacements,
       canUndo: this.replacer.canUndo,
-      paused: this.settings !== null && isPaused(this.settings, scopeUrl()),
+      paused: this.paused(),
       quickActions: [...this.quickActions],
     };
   }

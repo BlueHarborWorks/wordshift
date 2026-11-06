@@ -2,6 +2,7 @@ import {
   AUTO_SCRIPT_ID,
   CONTENT_SCRIPT_FILE,
   HIGHLIGHT_CSS,
+  type PageContextRequest,
   type QuickAction,
   type QuickSessionRequest,
   type QuickSessionResponse,
@@ -15,7 +16,11 @@ export default defineBackground(() => {
   browser.permissions.onAdded.addListener(() => void syncAutoScript());
   browser.permissions.onRemoved.addListener(() => void syncAutoScript());
   // Reply through sendResponse: Chrome before 148 ignores a promise returned by the listener.
-  browser.runtime.onMessage.addListener((message: QuickSessionRequest, sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message: QuickSessionRequest | PageContextRequest, sender, sendResponse) => {
+    if (message.type === 'pageContext:get') {
+      sendResponse({ topUrl: sender.tab?.url });
+      return false;
+    }
     if (!message.type.startsWith('quickSession:') && message.type !== 'tabState:set') return false;
     const tabId = sender.tab?.id;
     if (tabId === undefined) return false;

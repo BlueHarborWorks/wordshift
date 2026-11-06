@@ -234,6 +234,54 @@ const EMBED_HTML = `<!doctype html><html><body>
   <iframe sandbox="allow-scripts" srcdoc="&lt;p id=n&gt;Nested CLI note&lt;/p&gt;"></iframe>
 </body></html>`;
 
+test('pausing a site restores embedded frames and clears the active badge, including after reload', async ({
+  context,
+  extensionId,
+  sw,
+}) => {
+  await context.route('https://embed.wordshift.test/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: EMBED_HTML }),
+  );
+  await context.route(SITES_URL, (route) => route.fulfill({ contentType: 'text/html', body: SITES_HTML }));
+  await sw.evaluate(
+    (lib) => chrome.storage.local.set({ library: lib }),
+    library([rule({ find: 'cli', replace: 'cloud', match: 'word' })]),
+  );
+  await waitForRegistration(sw, 1);
+  const page = await context.newPage();
+  await page.goto(SITES_URL);
+  const embed = page.frameLocator('iframe');
+  const nested = embed.frameLocator('iframe');
+  await expect(embed.locator('#b')).toHaveText('Manual browser / cloud');
+  await expect(nested.locator('#n')).toHaveText('Nested cloud note');
+  const tabId = await sw.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]!.id!, SITES_URL);
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html?tab=${tabId}`);
+  await popup.getByRole('button', { name: 'Pause automatic rules' }).click();
+  await expect(popup.getByText('Automatic rules paused')).toBeVisible();
+  await expect(page.locator('#top')).toHaveText('Top text with one CLI mention.');
+  await expect(embed.locator('#b')).toHaveText('Manual browser / CLI');
+  await expect(nested.locator('#n')).toHaveText('Nested CLI note');
+  await expect.poll(() => sw.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), tabId)).toBe('');
+
+  await page.reload();
+  await expect(embed.locator('#b')).toHaveText('Manual browser / CLI');
+  await expect(nested.locator('#n')).toHaveText('Nested CLI note');
+  // Late content must also remain untouched while the top site is paused.
+  await embed.locator('#b').evaluate((node) => {
+    node.textContent = 'Updated CLI text';
+  });
+  await popup.reload();
+  await expect(popup.getByText('Automatic rules paused')).toBeVisible();
+  await expect(embed.locator('#b')).toHaveText('Updated CLI text');
+  await expect.poll(() => sw.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), tabId)).toBe('');
+
+  await popup.getByRole('button', { name: 'Resume automatic rules' }).click();
+  await expect(embed.locator('#b')).toHaveText('Updated cloud text');
+  await expect(nested.locator('#n')).toHaveText('Nested cloud note');
+  await expect.poll(() => sw.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), tabId)).toBe('•');
+});
+
 test('Quick Replace and automatic rules reach embedded frames', async ({ context, extensionId, sw }) => {
   await context.route('https://embed.wordshift.test/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: EMBED_HTML }),
